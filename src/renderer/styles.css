@@ -373,9 +373,21 @@ textarea {
 .interview-room {
   display: grid;
   gap: 18px;
-  max-width: 980px;
+  max-width: 1320px;
   width: 100%;
   margin: 0 auto;
+}
+
+.room-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.42fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.conversation-main {
+  display: grid;
+  gap: 18px;
 }
 
 .status-pill {
@@ -515,6 +527,13 @@ textarea {
   box-shadow: var(--shadow);
 }
 
+.history-panel {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 96px);
+  overflow: hidden;
+}
+
 .answer-card-header,
 .next-row {
   display: flex;
@@ -584,7 +603,7 @@ textarea {
 }
 
 .history-list {
-  max-height: 360px;
+  max-height: min(680px, calc(100vh - 210px));
 }
 
 .summary-screen {
@@ -698,8 +717,14 @@ textarea {
 
   .setup-grid,
   .settings-grid,
-  .workspace-grid {
+  .workspace-grid,
+  .room-layout {
     grid-template-columns: 1fr;
+  }
+
+  .history-panel {
+    position: static;
+    max-height: none;
   }
 
   .live-box {

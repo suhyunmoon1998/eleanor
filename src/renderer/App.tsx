@@ -1005,93 +1005,97 @@ function InterviewView(props: {
           </div>
 
           <section className="interview-room">
-            <div className={`status-pill ${props.liveConnected ? "status-pill-live" : ""}`}>
-              <span>{props.provider === "openai" ? (props.liveConnected ? "Live" : "Ready") : "Typed only"}</span>
-              <p>{props.liveStatus}</p>
-            </div>
-
-            <article className={`voice-stage ${props.liveConnected ? "voice-stage-live" : ""} ${props.isExtracting ? "voice-stage-thinking" : ""}`}>
-              <div className="voice-orb" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </div>
-              <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Eleanor is listening"}</p>
-              <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
-              <p className="hint">Just speak. When you pause, Eleanor will respond and ask the next question.</p>
-            </article>
-
-            <article className="answer-card">
-              <div className="answer-card-header">
-                <div>
-                  <p className="eyebrow">Live Conversation</p>
-                  <h3>{props.liveTranscriptPreview ? "I can hear you." : "Start speaking whenever you're ready."}</h3>
+            <section className="room-layout">
+              <div className="conversation-main">
+                <div className={`status-pill ${props.liveConnected ? "status-pill-live" : ""}`}>
+                  <span>{props.provider === "openai" ? (props.liveConnected ? "Live" : "Ready") : "Typed only"}</span>
+                  <p>{props.liveStatus}</p>
                 </div>
-                <button className="quiet-button" onClick={() => answerDraftRef.current?.focus()} disabled={props.isExtracting}>
-                  Edit Transcript
-                </button>
+
+                <article className={`voice-stage ${props.liveConnected ? "voice-stage-live" : ""} ${props.isExtracting ? "voice-stage-thinking" : ""}`}>
+                  <div className="voice-orb" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Eleanor is listening"}</p>
+                  <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
+                  <p className="hint">Just speak. When you pause, Eleanor will respond and ask the next question.</p>
+                </article>
+
+                <article className="answer-card">
+                  <div className="answer-card-header">
+                    <div>
+                      <p className="eyebrow">Live Conversation</p>
+                      <h3>{props.liveTranscriptPreview ? "I can hear you." : "Start speaking whenever you're ready."}</h3>
+                    </div>
+                    <button className="quiet-button" onClick={() => answerDraftRef.current?.focus()} disabled={props.isExtracting}>
+                      Edit Transcript
+                    </button>
+                  </div>
+
+                  <div className="live-transcript-line">
+                    <span>Live transcript</span>
+                    <p>{props.liveTranscriptPreview || "Waiting for your voice..."}</p>
+                  </div>
+
+                  <textarea
+                    ref={answerDraftRef}
+                    className="textarea answer-textarea"
+                    value={props.note}
+                    onChange={(event) => props.onChangeNote(event.target.value)}
+                    placeholder="If you need to fix or type an answer, use this box. Otherwise just keep talking."
+                  />
+
+                  <div className="next-row">
+                    <button className="button button-large next-button" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
+                      {props.isExtracting ? "Thinking..." : "Send now"}
+                    </button>
+                    <p>{props.isExtracting ? "Eleanor is updating memory and preparing one next question." : "Usually you can just talk. Use Send now only if you typed or corrected something."}</p>
+                  </div>
+                </article>
+
+                <details className="quiet-panel">
+                  <summary>More controls and notes</summary>
+                  <div className="quiet-panel-grid">
+                    <button className="button button-secondary" onClick={props.onResumeCapture} disabled={!props.liveConnected || !props.micPaused}>
+                      Resume
+                    </button>
+                    <button className="button button-secondary" onClick={props.onStopLiveVoice} disabled={!props.liveConnected}>
+                      Stop Audio
+                    </button>
+                    <button className="button button-secondary" disabled={props.isExtracting}>
+                      Skip / Park
+                    </button>
+                    <button className="button button-secondary" disabled={props.isExtracting}>
+                      Go Back
+                    </button>
+                    <button className="button button-secondary" disabled={!props.lastExtraction}>
+                      Show Current Entry
+                    </button>
+                    <button className="button button-secondary" disabled={!props.lastExtraction}>
+                      What Is Missing?
+                    </button>
+                    <button className="button button-secondary" disabled={props.isExtracting}>
+                      Commit Current Family
+                    </button>
+                    <button className="button button-danger" onClick={props.onFinishInterview} disabled={props.isExtracting}>
+                      Finish Interview
+                    </button>
+                  </div>
+                </details>
               </div>
 
-              <div className="live-transcript-line">
-                <span>Live transcript</span>
-                <p>{props.liveTranscriptPreview || "Waiting for your voice..."}</p>
-              </div>
-
-              <textarea
-                ref={answerDraftRef}
-                className="textarea answer-textarea"
-                value={props.note}
-                onChange={(event) => props.onChangeNote(event.target.value)}
-                placeholder="If you need to fix or type an answer, use this box. Otherwise just keep talking."
-              />
-
-              <div className="next-row">
-                <button className="button button-large next-button" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
-                  {props.isExtracting ? "Thinking..." : "Send now"}
-                </button>
-                <p>{props.isExtracting ? "Eleanor is updating memory and preparing one next question." : "Usually you can just talk. Use Send now only if you typed or corrected something."}</p>
-              </div>
-            </article>
-
-            <article className="history-card">
-              <div className="answer-card-header">
-                <div>
-                  <p className="eyebrow">Conversation History</p>
-                  <h3>{props.activeSession.transcript.length === 0 ? "No saved turns yet." : `${props.activeSession.transcript.length} saved turns`}</h3>
+              <aside className="history-card history-panel">
+                <div className="answer-card-header">
+                  <div>
+                    <p className="eyebrow">Conversation History</p>
+                    <h3>{props.activeSession.transcript.length === 0 ? "No saved turns yet." : `${props.activeSession.transcript.length} saved turns`}</h3>
+                  </div>
                 </div>
-              </div>
-              <ConversationHistory session={props.activeSession} emptyText="The conversation will appear here as Eleanor and Jack speak." />
-            </article>
-
-            <details className="quiet-panel">
-              <summary>More controls and notes</summary>
-              <div className="quiet-panel-grid">
-                <button className="button button-secondary" onClick={props.onResumeCapture} disabled={!props.liveConnected || !props.micPaused}>
-                  Resume
-                </button>
-                <button className="button button-secondary" onClick={props.onStopLiveVoice} disabled={!props.liveConnected}>
-                  Stop Audio
-                </button>
-                <button className="button button-secondary" disabled={props.isExtracting}>
-                  Skip / Park
-                </button>
-                <button className="button button-secondary" disabled={props.isExtracting}>
-                  Go Back
-                </button>
-                <button className="button button-secondary" disabled={!props.lastExtraction}>
-                  Show Current Entry
-                </button>
-                <button className="button button-secondary" disabled={!props.lastExtraction}>
-                  What Is Missing?
-                </button>
-                <button className="button button-secondary" disabled={props.isExtracting}>
-                  Commit Current Family
-                </button>
-                <button className="button button-danger" onClick={props.onFinishInterview} disabled={props.isExtracting}>
-                  Finish Interview
-                </button>
-              </div>
-            </details>
+                <ConversationHistory session={props.activeSession} emptyText="The full conversation will appear here as Eleanor and Jack speak." />
+              </aside>
+            </section>
           </section>
         </section>
       )}
