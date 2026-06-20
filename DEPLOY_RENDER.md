@@ -33,7 +33,7 @@ Optional:
 
 ## Included Service Settings
 
-- Build command: `npm ci && npm run build:web`
+- Build command: `npm ci --include=dev && npm run build:web`
 - Start command: `npm run start:web`
 - Health check: `/api/health`
 - Persistent data path: `/opt/render/project/src/app-data`
@@ -49,7 +49,7 @@ Optional:
 If you don't use the Blueprint file, use:
 
 - Runtime: `Node`
-- Build Command: `npm ci && npm run build:web`
+- Build Command: `npm ci --include=dev && npm run build:web`
 - Start Command: `npm run start:web`
 - Health Check Path: `/api/health`
 - Instance Type: `Starter` or higher
