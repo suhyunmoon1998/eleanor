@@ -14,7 +14,7 @@ type LoadState =
   | { status: "ready"; data: BootstrapState }
   | { status: "error"; message: string };
 
-type ViewMode = "setup" | "map" | "settings";
+type ViewMode = "setup" | "map";
 
 type AudioDeviceOption = {
   deviceId: string;
@@ -488,9 +488,6 @@ export function App() {
           <button className={`nav-button ${viewMode === "map" ? "nav-button-active" : ""}`} onClick={() => setViewMode(data.hasApiKey ? "map" : "setup")}>
             Interview
           </button>
-          <button className={`nav-button ${viewMode === "settings" ? "nav-button-active" : ""}`} onClick={() => setViewMode("settings")}>
-            Settings
-          </button>
         </nav>
 
         <section className="card">
@@ -581,20 +578,6 @@ export function App() {
               </p>
             </article>
           </section>
-        ) : null}
-
-        {viewMode === "settings" ? (
-          <SettingsView
-            settings={data.settings}
-            inputDevices={inputDevices}
-            outputDevices={outputDevices}
-            deviceSupport={deviceSupport}
-            onSave={handleSaveSettings}
-            onTestConnection={handleTestConnection}
-            onExportData={handleExportData}
-            onDeleteLocalData={handleDeleteLocalData}
-            hasApiKey={data.hasApiKey}
-          />
         ) : null}
 
         {viewMode === "map" ? (
