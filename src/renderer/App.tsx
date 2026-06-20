@@ -114,6 +114,13 @@ function shortText(text: string, maxLength = 180) {
   return `${normalized.slice(0, maxLength - 1).trim()}...`;
 }
 
+function cleanPreviewText(text: string, maxLength = 96) {
+  if (/<(!doctype|html|head|body|meta|style)|@font-face|data:font|base64|--text-/i.test(text)) {
+    return "";
+  }
+  return shortText(text, maxLength);
+}
+
 function buildCompletedReport(session: SessionRecord, lastExtraction: ExtractionResult | null, unsavedDraft: string): CompletedReport {
   const userTurns = session.transcript.filter((entry) => entry.role === "user");
   const assistantTurns = session.transcript.filter((entry) => entry.role === "assistant");
@@ -661,23 +668,26 @@ export function App() {
           <p className="section-title">Recent Sessions</p>
           <div className="stack">
             {data.recentSessions.length === 0 ? <p className="hint">No sessions yet.</p> : null}
-            {data.recentSessions.map((session) => (
-              <button
-                key={session.id}
-                className="list-button"
-                onClick={() => {
-                  setCompletedReport(null);
-                  setActiveSession(session);
-                  setLastExtraction(buildExtractionPreview(session));
-                  setViewMode("map");
-                }}
-              >
-                <strong>{session.title}</strong>
-                <span>{session.familyId}</span>
-                <span>{(session.progress[session.familyId] ?? []).length} confirmed</span>
-                {session.currentQuestion ? <span className="list-note">{session.currentQuestion}</span> : null}
-              </button>
-            ))}
+            {data.recentSessions.map((session) => {
+              const preview = cleanPreviewText(session.currentQuestion);
+              return (
+                <button
+                  key={session.id}
+                  className="list-button"
+                  onClick={() => {
+                    setCompletedReport(null);
+                    setActiveSession(session);
+                    setLastExtraction(buildExtractionPreview(session));
+                    setViewMode("map");
+                  }}
+                >
+                  <strong>{session.title}</strong>
+                  <span>{session.familyId}</span>
+                  <span>{(session.progress[session.familyId] ?? []).length} confirmed</span>
+                  {preview ? <span className="list-note">{preview}</span> : null}
+                </button>
+              );
+            })}
           </div>
         </section>
       </aside>
@@ -944,20 +954,20 @@ function InterviewView(props: {
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Interview</p>
-          <h2>Press start, then talk.</h2>
-          <p>Eleanor listens, writes it down, and finds the next question.</p>
+          <p className="eyebrow">AI Meeting Notes</p>
+          <h2>Record the conversation. Eleanor takes the notes.</h2>
+          <p>Speak naturally. The transcript, questions, and summary stay organized as you go.</p>
         </div>
       </section>
 
       {!props.activeSession ? (
         <section className="start-panel">
           <article className="start-card">
-            <p className="eyebrow">Voice First</p>
-            <h2>Start Eleanor</h2>
+            <p className="eyebrow">Voice Workspace</p>
+            <h2>Start recording</h2>
             <p className="start-copy">
-              Click once, allow the microphone, then talk naturally. Eleanor listens, thinks,
-              and answers by voice like a live ChatGPT-style conversation.
+              Click once, allow the microphone, then talk like a normal meeting.
+              Eleanor listens, replies, keeps the transcript, and prepares a clean summary.
             </p>
             <div className="start-actions">
               <button
@@ -965,14 +975,14 @@ function InterviewView(props: {
                 onClick={() => startingFamily && void props.onCreateVoiceSession(startingFamily.familyId, startingTitle)}
                 disabled={!startingFamily || !props.liveAvailable}
               >
-                Start Interview
+                Start Recording
               </button>
               <button
                 className="button button-secondary"
                 onClick={() => startingFamily && void props.onCreateSession(startingFamily.familyId, startingTitle)}
                 disabled={!startingFamily}
               >
-                Type Instead
+                Type Notes
               </button>
             </div>
             <p className="hint">
@@ -987,8 +997,8 @@ function InterviewView(props: {
         <section className="workspace">
           <div className="room-topbar">
             <div>
-              <p className="eyebrow">Live Interview</p>
-              <h2>{props.activeSession.familyId}</h2>
+              <p className="eyebrow">Recording</p>
+              <h2>{props.activeSession.title}</h2>
             </div>
             <div className="topbar-actions">
               <button className="quiet-button" onClick={() => void props.onStartLiveVoice()} disabled={!props.liveAvailable}>
@@ -1018,15 +1028,15 @@ function InterviewView(props: {
                     <span />
                     <span />
                   </div>
-                  <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Eleanor is listening"}</p>
+                  <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Live voice"}</p>
                   <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
-                  <p className="hint">Just speak. When you pause, Eleanor will respond and ask the next question.</p>
+                  <p className="hint">Keep talking naturally. Eleanor will capture the answer, respond, and move to the next question.</p>
                 </article>
 
                 <article className="answer-card">
                   <div className="answer-card-header">
                     <div>
-                      <p className="eyebrow">Live Conversation</p>
+                      <p className="eyebrow">Live Transcript</p>
                       <h3>{props.liveTranscriptPreview ? "I can hear you." : "Start speaking whenever you're ready."}</h3>
                     </div>
                     <button className="quiet-button" onClick={() => answerDraftRef.current?.focus()} disabled={props.isExtracting}>
