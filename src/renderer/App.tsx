@@ -93,6 +93,7 @@ export function App() {
   const bridge = getBridge();
   const nativeBridge = hasNativeBridge();
   const liveSessionRef = useRef<LiveRealtimeSession | null>(null);
+  const isExtractingRef = useRef(false);
   const activeSessionRef = useRef<SessionRecord | null>(null);
   const bootstrapRef = useRef<BootstrapState | null>(null);
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
@@ -121,6 +122,10 @@ export function App() {
   useEffect(() => {
     activeSessionRef.current = activeSession;
   }, [activeSession]);
+
+  useEffect(() => {
+    isExtractingRef.current = isExtracting;
+  }, [isExtracting]);
 
   useEffect(() => {
     if (loadState.status === "ready") {
@@ -272,7 +277,84 @@ export function App() {
       return `${trimmed}\n\n${cleanText}`;
     });
     setLiveTranscriptPreview("");
-    setLiveStatus("Transcript captured. Review or edit it, then click Next.");
+    setLiveStatus("Got it. Eleanor is preparing a response.");
+  }
+
+  async function processFinalAnswer(session: SessionRecord, answerText: string) {
+    const cleanAnswer = answerText.trim();
+    if (!cleanAnswer || isExtractingRef.current) return;
+
+    isExtractingRef.current = true;
+    setIsExtracting(true);
+    liveSessionRef.current?.setMicrophoneEnabled(false);
+    setMicPaused(true);
+    setLiveStatus("Thinking...");
+
+    try {
+      const transcriptEntry = {
+        id: crypto.randomUUID(),
+        role: "user" as const,
+        text: cleanAnswer,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedSession = await bridge.updateSession({
+        sessionId: session.id,
+        transcriptEntry,
+      });
+      setActiveSession(updatedSession);
+      activeSessionRef.current = updatedSession;
+      setNote("");
+
+      const result = await bridge.runExtraction({
+        familyId: updatedSession.familyId,
+        currentQuestion: updatedSession.currentQuestion,
+        transcript: transcriptEntry.text,
+        priorCapture: updatedSession.capture,
+        parkedItems: updatedSession.leads.filter((lead) => lead.kind === "parked").map((lead) => lead.text),
+      });
+
+      setLastExtraction(result);
+
+      const assistantEntry = {
+        id: crypto.randomUUID(),
+        role: "assistant" as const,
+        text: [result.spokenReply, result.nextQuestion].filter(Boolean).join("\n\n"),
+        createdAt: new Date().toISOString(),
+      };
+
+      const nextSession = await bridge.updateSession({
+        sessionId: updatedSession.id,
+        transcriptEntry: assistantEntry,
+        capturePatch: result.capturePatch,
+        contradictions: result.contradictions,
+        triggerIds: result.atomicTriggerIds,
+        currentQuestion: result.nextQuestion,
+        lastAssistantReply: result.spokenReply,
+        lastPriorityReason: result.priorityReason,
+        missingCriticalFields: result.missingCriticalFields,
+        leads: [
+          ...result.caseDevelopmentLeads.map((text) => ({ text, kind: "case-development" as const })),
+          ...result.clientManagementLeads.map((text) => ({ text, kind: "client-management" as const })),
+          ...result.clientDevelopmentLeads.map((text) => ({ text, kind: "client-development" as const })),
+          ...result.parkedItems.map((text) => ({ text, kind: "parked" as const })),
+        ],
+      });
+      setActiveSession(nextSession);
+      activeSessionRef.current = nextSession;
+      await refresh();
+
+      if (liveSessionRef.current?.isConnected()) {
+        sendStructuredLiveReply(nextSession, result);
+        liveSessionRef.current.setMicrophoneEnabled(true);
+        setMicPaused(false);
+        setLiveStatus("Listening...");
+      } else {
+        setLiveStatus("Next question is ready.");
+      }
+    } finally {
+      isExtractingRef.current = false;
+      setIsExtracting(false);
+    }
   }
 
   async function handleStartLiveVoice(sessionOverride?: SessionRecord) {
@@ -305,10 +387,14 @@ export function App() {
       },
       onUserTranscriptDelta: (text) => {
         setLiveTranscriptPreview(text);
-        setLiveStatus("Listening. Eleanor will wait until you click Next.");
+        setLiveStatus("Listening...");
       },
       onUserTranscript: (text) => {
         appendDraftAnswer(text);
+        const currentSession = activeSessionRef.current;
+        if (currentSession) {
+          void processFinalAnswer(currentSession, text);
+        }
       },
       onStatus: (text) => setLiveStatus(text),
       onConnectionChange: (connected) => setLiveConnected(connected),
@@ -411,71 +497,7 @@ export function App() {
 
   async function handleRunExtraction() {
     if (!activeSession || !note.trim()) return;
-    setIsExtracting(true);
-    liveSessionRef.current?.setMicrophoneEnabled(false);
-    setMicPaused(true);
-    setLiveStatus("Analyzing your answer…");
-    try {
-      const transcriptEntry = {
-        id: crypto.randomUUID(),
-        role: "user" as const,
-        text: note.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      const updatedSession = await bridge.updateSession({
-        sessionId: activeSession.id,
-        transcriptEntry,
-      });
-      setActiveSession(updatedSession);
-      setNote("");
-
-      const result = await bridge.runExtraction({
-        familyId: updatedSession.familyId,
-        currentQuestion: updatedSession.currentQuestion,
-        transcript: transcriptEntry.text,
-        priorCapture: updatedSession.capture,
-        parkedItems: updatedSession.leads.filter((lead) => lead.kind === "parked").map((lead) => lead.text),
-      });
-
-      setLastExtraction(result);
-
-      const assistantEntry = {
-        id: crypto.randomUUID(),
-        role: "assistant" as const,
-        text: [result.spokenReply, result.nextQuestion].filter(Boolean).join("\n\n"),
-        createdAt: new Date().toISOString(),
-      };
-
-      const nextSession = await bridge.updateSession({
-        sessionId: updatedSession.id,
-        transcriptEntry: assistantEntry,
-        capturePatch: result.capturePatch,
-        contradictions: result.contradictions,
-        triggerIds: result.atomicTriggerIds,
-        currentQuestion: result.nextQuestion,
-        lastAssistantReply: result.spokenReply,
-        lastPriorityReason: result.priorityReason,
-        missingCriticalFields: result.missingCriticalFields,
-        leads: [
-          ...result.caseDevelopmentLeads.map((text) => ({ text, kind: "case-development" as const })),
-          ...result.clientManagementLeads.map((text) => ({ text, kind: "client-management" as const })),
-          ...result.clientDevelopmentLeads.map((text) => ({ text, kind: "client-development" as const })),
-          ...result.parkedItems.map((text) => ({ text, kind: "parked" as const })),
-        ],
-      });
-      setActiveSession(nextSession);
-      await refresh();
-      if (liveConnected && liveSessionRef.current?.isConnected()) {
-        sendStructuredLiveReply(nextSession, result);
-        liveSessionRef.current.setMicrophoneEnabled(true);
-        setMicPaused(false);
-        setLiveStatus("Saved. Eleanor is asking the next question.");
-      } else {
-        setLiveStatus("Saved. Next question is ready.");
-      }
-    } finally {
-      setIsExtracting(false);
-    }
+    await processFinalAnswer(activeSession, note);
   }
 
   if (loadState.status === "loading") {
@@ -775,8 +797,8 @@ function InterviewView(props: {
             <p className="eyebrow">Voice First</p>
             <h2>Start Eleanor</h2>
             <p className="start-copy">
-              Click once, allow the microphone, then speak naturally. Eleanor will capture your answer,
-              keep the transcript, and ask the next useful question.
+              Click once, allow the microphone, then talk naturally. Eleanor listens, thinks,
+              and answers by voice like a live ChatGPT-style conversation.
             </p>
             <div className="start-actions">
               <button
@@ -829,17 +851,22 @@ function InterviewView(props: {
               <p>{props.liveStatus}</p>
             </div>
 
-            <article className="question-card">
-              <p className="eyebrow">Eleanor asks</p>
+            <article className={`voice-stage ${props.liveConnected ? "voice-stage-live" : ""} ${props.isExtracting ? "voice-stage-thinking" : ""}`}>
+              <div className="voice-orb" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+              <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Eleanor is listening"}</p>
               <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
-              <p className="hint">Answer out loud. Eleanor will not analyze or advance until you press Next.</p>
+              <p className="hint">Just speak. When you pause, Eleanor will respond and ask the next question.</p>
             </article>
 
             <article className="answer-card">
               <div className="answer-card-header">
                 <div>
-                  <p className="eyebrow">Your Answer</p>
-                  <h3>Speak naturally. Edit only if needed.</h3>
+                  <p className="eyebrow">Live Conversation</p>
+                  <h3>{props.liveTranscriptPreview ? "I can hear you." : "Start speaking whenever you're ready."}</h3>
                 </div>
                 <button className="quiet-button" onClick={() => answerDraftRef.current?.focus()} disabled={props.isExtracting}>
                   Edit Transcript
@@ -856,14 +883,14 @@ function InterviewView(props: {
                 className="textarea answer-textarea"
                 value={props.note}
                 onChange={(event) => props.onChangeNote(event.target.value)}
-                placeholder="Your finalized answer will appear here. You can edit it before clicking Next."
+                placeholder="If you need to fix or type an answer, use this box. Otherwise just keep talking."
               />
 
               <div className="next-row">
                 <button className="button button-large next-button" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
-                  {props.isExtracting ? "Analyzing..." : "Next"}
+                  {props.isExtracting ? "Thinking..." : "Send now"}
                 </button>
-                <p>{props.isExtracting ? "Eleanor is updating memory and preparing one next question." : "Next saves this answer and moves the interview forward."}</p>
+                <p>{props.isExtracting ? "Eleanor is updating memory and preparing one next question." : "Usually you can just talk. Use Send now only if you typed or corrected something."}</p>
               </div>
             </article>
 
