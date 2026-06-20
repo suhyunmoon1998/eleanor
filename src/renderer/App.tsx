@@ -446,10 +446,10 @@ export function App() {
     if (!family || !liveSessionRef.current?.isConnected()) return;
     const prompt = [
       isOpening || session.transcript.length === 0
-        ? "Begin R1A now with one concise opening question."
+        ? "Begin the live conversation now with one concise, thoughtful opening question."
         : session.currentQuestion
-          ? "Resume the live interview using the saved pending question unless the user has already answered it."
-          : "Continue the live interview from the current family. Ask one concise next question.",
+          ? "Resume naturally. If the user has not answered the saved pending question, ask it conversationally. If they have, ask the best follow-up."
+          : "Continue the live conversation from the current family. Answer any user question first, then ask one thoughtful follow-up.",
       `Current family: ${family.familyId} — ${family.title}`,
       `Interview goal: ${family.interviewGoal}`,
       family.expectedTriggerNames.length > 0
@@ -477,9 +477,10 @@ export function App() {
 
     const family = bootstrapRef.current?.families.find((item) => item.familyId === session.familyId);
     const prompt = [
-      "Speak exactly the approved reply below in Eleanor's voice.",
-      "After that, ask exactly the approved next question below.",
-      "Do not add preamble, explanation, or extra commentary.",
+      "Speak naturally in Eleanor's voice.",
+      "Use the approved reply as the substance of your response, then ask the approved next question.",
+      "If the user's last turn included a question, make sure the reply answers it clearly before the follow-up.",
+      "Keep it concise and conversational. Do not add unrelated commentary.",
       family ? `Current family: ${family.familyId} — ${family.title}` : "",
       `Approved reply: ${result.spokenReply}`,
       `Approved next question: ${result.nextQuestion}`,
