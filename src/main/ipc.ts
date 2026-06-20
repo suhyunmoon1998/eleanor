@@ -86,6 +86,7 @@ export function registerIpcHandlers({ appStore, ai, secretStore, sources, dataRo
   });
 
   ipcMain.handle("eleanor:run-extraction", async (_event, input) => ai.runExtraction(input));
+  ipcMain.handle("eleanor:finalize-report", async (_event, input) => ai.finalizeReport(input));
   ipcMain.handle("eleanor:create-realtime-session", async (_event, offerSdp: string) => ai.createRealtimeSession(offerSdp));
   ipcMain.handle("eleanor:export-local-data", async () => {
     const exportData = await appStore.exportState();

@@ -2,6 +2,7 @@ import type {
   AppSettings,
   BootstrapState,
   ExtractionResult,
+  FinalReportResult,
   SaveApiKeyResult,
   SessionRecord,
   TestConnectionResult,
@@ -19,6 +20,7 @@ declare global {
       getSession: (sessionId: string) => Promise<SessionRecord | null>;
       updateSession: (input: unknown) => Promise<SessionRecord>;
       runExtraction: (input: unknown) => Promise<ExtractionResult>;
+      finalizeReport: (input: unknown) => Promise<FinalReportResult>;
       createRealtimeSession: (offerSdp: string) => Promise<string>;
       exportLocalData: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
       deleteLocalData: () => Promise<{ ok: boolean }>;

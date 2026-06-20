@@ -4,6 +4,7 @@ import type {
   AppSettings,
   BootstrapState,
   ExtractionResult,
+  FinalReportResult,
   SessionRecord,
 } from "../shared/contracts.js";
 import { getBridge, hasNativeBridge } from "./mock-bridge";
@@ -25,9 +26,12 @@ type CompletedReport = {
   session: SessionRecord;
   endedAt: string;
   summary: string;
+  title: string;
+  problemAnswerPairs: FinalReportResult["problemAnswerPairs"];
   keyPoints: string[];
   openQuestions: string[];
   unsavedDraft?: string;
+  aiGenerated: boolean;
 };
 
 const providerOptions: Array<{ value: AiProvider; label: string }> = [
@@ -121,7 +125,41 @@ function cleanPreviewText(text: string, maxLength = 96) {
   return shortText(text, maxLength);
 }
 
-function buildCompletedReport(session: SessionRecord, lastExtraction: ExtractionResult | null, unsavedDraft: string): CompletedReport {
+function buildFallbackProblemAnswerPairs(session: SessionRecord, unsavedDraft: string): FinalReportResult["problemAnswerPairs"] {
+  const pairs: FinalReportResult["problemAnswerPairs"] = [];
+  const transcript = session.transcript;
+
+  transcript.forEach((entry, index) => {
+    if (entry.role !== "user") return;
+    const previousAssistant = transcript
+      .slice(0, index)
+      .reverse()
+      .find((item) => item.role === "assistant");
+
+    pairs.push({
+      problem: previousAssistant?.text.split("\n").filter(Boolean).at(-1) ?? `Interview answer ${pairs.length + 1}`,
+      answer: entry.text,
+      evidence: entry.createdAt,
+    });
+  });
+
+  if (unsavedDraft.trim()) {
+    pairs.push({
+      problem: "Unsaved final note",
+      answer: unsavedDraft.trim(),
+      evidence: "Typed draft at finish time.",
+    });
+  }
+
+  return pairs.length > 0 ? pairs : [{ problem: "대화 내용", answer: "아직 저장된 답변이 없습니다." }];
+}
+
+function buildCompletedReport(
+  session: SessionRecord,
+  lastExtraction: ExtractionResult | null,
+  unsavedDraft: string,
+  aiReport?: FinalReportResult | null,
+): CompletedReport {
   const userTurns = session.transcript.filter((entry) => entry.role === "user");
   const assistantTurns = session.transcript.filter((entry) => entry.role === "assistant");
   const latestUserTurns = userTurns.slice(-5).map((entry) => shortText(entry.text));
@@ -141,11 +179,34 @@ function buildCompletedReport(session: SessionRecord, lastExtraction: Extraction
   return {
     session,
     endedAt: new Date().toISOString(),
-    summary: summaryParts.join(" "),
-    keyPoints: latestUserTurns.length > 0 ? latestUserTurns : ["No finalized user answers yet."],
-    openQuestions: openQuestions.length > 0 ? openQuestions : ["No saved open question."],
+    title: aiReport?.title ?? `${session.title} final report`,
+    summary: aiReport?.summary ?? summaryParts.join(" "),
+    problemAnswerPairs: aiReport?.problemAnswerPairs?.length
+      ? aiReport.problemAnswerPairs
+      : buildFallbackProblemAnswerPairs(session, unsavedDraft),
+    keyPoints: aiReport?.keyPoints?.length ? aiReport.keyPoints : latestUserTurns.length > 0 ? latestUserTurns : ["No finalized user answers yet."],
+    openQuestions: aiReport?.openQuestions?.length ? aiReport.openQuestions : openQuestions.length > 0 ? openQuestions : ["No saved open question."],
     unsavedDraft: unsavedDraft.trim() || undefined,
+    aiGenerated: Boolean(aiReport),
   };
+}
+
+function formatProblemAnswerReport(report: CompletedReport | null) {
+  if (!report) return "";
+  return [
+    report.title,
+    "",
+    report.summary,
+    "",
+    ...report.problemAnswerPairs.flatMap((pair, index) => [
+      `${index + 1}. 문제: ${pair.problem}`,
+      `   답: ${pair.answer}`,
+      pair.evidence ? `   근거: ${pair.evidence}` : "",
+      "",
+    ]),
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
 }
 
 export function App() {
@@ -163,6 +224,7 @@ export function App() {
   const [activeSession, setActiveSession] = useState<SessionRecord | null>(null);
   const [note, setNote] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [lastExtraction, setLastExtraction] = useState<ExtractionResult | null>(null);
   const [completedReport, setCompletedReport] = useState<CompletedReport | null>(null);
   const [liveStatus, setLiveStatus] = useState("Live interview status will appear here.");
@@ -508,16 +570,34 @@ export function App() {
     setMicPaused(false);
   }
 
-  function handleFinishInterview() {
+  async function handleFinishInterview() {
     const session = activeSessionRef.current ?? activeSession;
     if (!session) return;
     handleStopLiveVoice();
-    setCompletedReport(buildCompletedReport(session, lastExtraction, note));
+    setIsFinalizing(true);
+    setLiveStatus("Creating final problem-answer summary...");
+    let aiReport: FinalReportResult | null = null;
+    try {
+      aiReport = await withTimeout(
+        bridge.finalizeReport({
+          session,
+          lastExtraction,
+          unsavedDraft: note,
+        }),
+        60_000,
+        "Eleanor took too long to create the final problem-answer report.",
+      );
+      setErrorMessage("");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not create the AI final report. Showing a local summary instead.");
+    }
+    setCompletedReport(buildCompletedReport(session, lastExtraction, note, aiReport));
     setActiveSession(null);
     setLastExtraction(null);
     setLiveTranscriptPreview("");
     setNote("");
     setViewMode("map");
+    setIsFinalizing(false);
   }
 
   function handleStartOver() {
@@ -733,6 +813,7 @@ export function App() {
             completedReport={completedReport}
             note={note}
             isExtracting={isExtracting}
+            isFinalizing={isFinalizing}
             lastExtraction={lastExtraction}
             liveStatus={liveStatus}
             liveConnected={liveConnected}
@@ -740,7 +821,7 @@ export function App() {
             liveTranscriptPreview={liveTranscriptPreview}
             micPaused={micPaused}
             provider={data.settings.provider}
-            onFinishInterview={handleFinishInterview}
+            onFinishInterview={() => void handleFinishInterview()}
             onStartOver={handleStartOver}
             onCreateSession={(familyId, title) => handleCreateSession(familyId, title, false)}
             onCreateVoiceSession={(familyId, title) => handleCreateSession(familyId, title, true)}
@@ -869,6 +950,7 @@ function InterviewView(props: {
   completedReport: CompletedReport | null;
   note: string;
   isExtracting: boolean;
+  isFinalizing: boolean;
   lastExtraction: ExtractionResult | null;
   liveStatus: string;
   liveConnected: boolean;
@@ -897,16 +979,30 @@ function InterviewView(props: {
       <section className="summary-screen">
         <article className="summary-hero">
           <p className="eyebrow">Interview Complete</p>
-          <h2>Summary</h2>
+          <h2>{props.completedReport.title}</h2>
           <p>{props.completedReport.summary}</p>
+          <p className="hint">{props.completedReport.aiGenerated ? "AI generated this problem-answer report from the conversation." : "Showing local fallback because AI report generation was unavailable."}</p>
           <div className="summary-actions">
             <button className="button" onClick={props.onStartOver}>Start New Interview</button>
             <button
               className="button button-secondary"
-              onClick={() => void navigator.clipboard?.writeText(props.completedReport?.summary ?? "")}
+              onClick={() => void navigator.clipboard?.writeText(formatProblemAnswerReport(props.completedReport))}
             >
-              Copy Summary
+              Copy Problem / Answer
             </button>
+          </div>
+        </article>
+
+        <article className="answer-card">
+          <p className="section-title">Problem / Answer</p>
+          <div className="problem-answer-list">
+            {props.completedReport.problemAnswerPairs.map((pair, index) => (
+              <section className="problem-answer-card" key={`${pair.problem}-${index}`}>
+                <p><strong>문제:</strong> {pair.problem}</p>
+                <p><strong>답:</strong> {pair.answer}</p>
+                {pair.evidence ? <span>{pair.evidence}</span> : null}
+              </section>
+            ))}
           </div>
         </article>
 
@@ -1010,7 +1106,9 @@ function InterviewView(props: {
               <button className="quiet-button" onClick={props.onToggleMute} disabled={!props.liveConnected}>
                 {props.micPaused ? "Unmute" : "Mute"}
               </button>
-              <button className="quiet-button" onClick={props.onFinishInterview}>Finish</button>
+              <button className="quiet-button" onClick={props.onFinishInterview} disabled={props.isFinalizing}>
+                {props.isFinalizing ? "Summarizing..." : "Finish"}
+              </button>
             </div>
           </div>
 
@@ -1089,8 +1187,8 @@ function InterviewView(props: {
                     <button className="button button-secondary" disabled={props.isExtracting}>
                       Commit Current Family
                     </button>
-                    <button className="button button-danger" onClick={props.onFinishInterview} disabled={props.isExtracting}>
-                      Finish Interview
+                    <button className="button button-danger" onClick={props.onFinishInterview} disabled={props.isExtracting || props.isFinalizing}>
+                      {props.isFinalizing ? "Summarizing..." : "Finish Interview"}
                     </button>
                   </div>
                 </details>

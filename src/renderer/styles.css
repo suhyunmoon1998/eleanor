@@ -702,6 +702,34 @@ textarea {
   line-height: 1.5;
 }
 
+.problem-answer-list {
+  display: grid;
+  gap: 12px;
+}
+
+.problem-answer-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #f8fbff;
+}
+
+.problem-answer-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.problem-answer-card strong {
+  color: var(--accent);
+}
+
+.problem-answer-card span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .tall {
   display: grid;
   align-content: start;

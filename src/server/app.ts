@@ -135,6 +135,8 @@ export async function buildServerApp(options: ServerAppOptions = {}) {
 
   app.post("/api/run-extraction", async (request) => ai.runExtraction(request.body));
 
+  app.post("/api/finalize-report", async (request) => ai.finalizeReport(request.body));
+
   app.post("/api/realtime/session", async (request, reply) => {
     const offerSdp = typeof request.body === "string" ? request.body : "";
     const answerSdp = await ai.createRealtimeSession(offerSdp);

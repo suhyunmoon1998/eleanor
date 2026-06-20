@@ -2,7 +2,13 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { buildExtractionInstructions, ELEANOR_VOICE_INSTRUCTIONS } from "../../shared/prompting.js";
-import type { AppSettings, ExtractionResult } from "../../shared/contracts.js";
+import {
+  finalReportInputSchema,
+  finalReportResultSchema,
+  type AppSettings,
+  type ExtractionResult,
+  type FinalReportResult,
+} from "../../shared/contracts.js";
 import type { AppStore } from "./app-store.js";
 import type { ApiKeyStore } from "./secret-store.js";
 import type { SourceRepository } from "./source-repository.js";
@@ -72,6 +78,8 @@ type ExtractionPayload = {
   openLoops?: string[];
   parkedItems?: string[];
 };
+
+type FinalReportPayload = z.infer<typeof finalReportInputSchema>;
 
 type TestConnectionResult = {
   ok: boolean;
@@ -148,6 +156,15 @@ export class AIService {
       return this.runAnthropicExtraction(input as ExtractionPayload, settings);
     }
     return this.runOpenAIExtraction(input as ExtractionPayload, settings);
+  }
+
+  async finalizeReport(input: unknown): Promise<FinalReportResult> {
+    const parsed = finalReportInputSchema.parse(input);
+    const settings = await this.appStore.getSettings();
+    if (settings.provider === "anthropic") {
+      return this.runAnthropicFinalReport(parsed, settings);
+    }
+    return this.runOpenAIFinalReport(parsed, settings);
   }
 
   private async testOpenAIConnection(settings: AppSettings): Promise<TestConnectionResult> {
@@ -257,6 +274,33 @@ export class AIService {
     return normalizeExtractionResult(response.output_parsed);
   }
 
+  private async runOpenAIFinalReport(input: FinalReportPayload, settings: AppSettings) {
+    const client = await this.getOpenAIClient();
+    const response = await client.responses.parse({
+      model: settings.extractionModel,
+      instructions: this.buildFinalReportInstructions(),
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: JSON.stringify(input, null, 2),
+            },
+          ],
+        },
+      ],
+      text: {
+        format: zodTextFormat(finalReportResultSchema, "eleanor_final_problem_answer_report"),
+      },
+    });
+
+    if (!response.output_parsed) {
+      throw new Error("OpenAI returned an empty final report.");
+    }
+    return response.output_parsed;
+  }
+
   private async runAnthropicExtraction(input: ExtractionPayload, settings: AppSettings) {
     const { family, familyAtlas } = await this.getExtractionContext(input.familyId);
     const requestPayload = {
@@ -291,6 +335,38 @@ export class AIService {
     }, settings.fallbackExtractionModel);
 
     return normalizeExtractionResult(extractionSchema.parse(JSON.parse(this.extractJsonText(body))));
+  }
+
+  private async runAnthropicFinalReport(input: FinalReportPayload, settings: AppSettings) {
+    const body = await this.createAnthropicMessage(settings.extractionModel, {
+      system: [
+        this.buildFinalReportInstructions(),
+        "Return only valid JSON with no markdown fence and no commentary.",
+        "The JSON object must include title, summary, problemAnswerPairs, keyPoints, and openQuestions.",
+      ].join("\n\n"),
+      messages: [
+        {
+          role: "user",
+          content: JSON.stringify(input, null, 2),
+        },
+      ],
+      max_tokens: 2400,
+    }, settings.fallbackExtractionModel);
+
+    return finalReportResultSchema.parse(JSON.parse(this.extractJsonText(body)));
+  }
+
+  private buildFinalReportInstructions() {
+    return [
+      "You are Eleanor, turning a completed live interview into a concise operational report for Jack Law.",
+      "Read the full transcript carefully and extract the user's meaningful answers.",
+      "Create problemAnswerPairs where each item is formatted conceptually as 문제: 답.",
+      "For problem, write the concrete question, issue, trigger, rule, procedure, missing field, or decision that was being clarified.",
+      "For answer, write the user's answer in concise, useful language. Preserve Korean or English as spoken. Do not invent facts.",
+      "If the transcript shows a question but no real answer, write 미확인 / Not confirmed in the answer.",
+      "Prefer 3 to 12 high-signal pairs over many tiny fragments.",
+      "Keep summary short. keyPoints should capture what matters most. openQuestions should list unresolved items.",
+    ].join("\n");
   }
 
   private async getExtractionContext(familyId: string) {

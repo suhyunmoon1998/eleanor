@@ -85,6 +85,26 @@ export const extractionResultSchema = z.object({
   parkedItems: z.array(z.string()).default([]),
 });
 
+export const problemAnswerPairSchema = z.object({
+  problem: z.string(),
+  answer: z.string(),
+  evidence: z.string().optional(),
+});
+
+export const finalReportResultSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  problemAnswerPairs: z.array(problemAnswerPairSchema).default([]),
+  keyPoints: z.array(z.string()).default([]),
+  openQuestions: z.array(z.string()).default([]),
+});
+
+export const finalReportInputSchema = z.object({
+  session: sessionSchema,
+  lastExtraction: extractionResultSchema.nullish(),
+  unsavedDraft: z.string().optional(),
+});
+
 export const saveApiKeyInputSchema = z.object({
   apiKey: z.string().min(10),
 });
@@ -121,5 +141,6 @@ export type AiProvider = AppSettings["provider"];
 export type BootstrapState = z.infer<typeof bootstrapStateSchema>;
 export type SessionRecord = z.infer<typeof sessionSchema>;
 export type ExtractionResult = z.infer<typeof extractionResultSchema>;
+export type FinalReportResult = z.infer<typeof finalReportResultSchema>;
 export type TestConnectionResult = z.infer<typeof testConnectionResultSchema>;
 export type SaveApiKeyResult = z.infer<typeof saveApiKeyResultSchema>;

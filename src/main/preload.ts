@@ -11,6 +11,7 @@ const api = {
   getSession: (sessionId: string) => ipcRenderer.invoke("eleanor:get-session", sessionId),
   updateSession: (input: unknown) => ipcRenderer.invoke("eleanor:update-session", input),
   runExtraction: (input: unknown) => ipcRenderer.invoke("eleanor:run-extraction", input),
+  finalizeReport: (input: unknown) => ipcRenderer.invoke("eleanor:finalize-report", input),
   createRealtimeSession: (offerSdp: string) => ipcRenderer.invoke("eleanor:create-realtime-session", offerSdp),
   exportLocalData: () => ipcRenderer.invoke("eleanor:export-local-data"),
   deleteLocalData: () => ipcRenderer.invoke("eleanor:delete-local-data"),

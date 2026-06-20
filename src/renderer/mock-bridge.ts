@@ -3,6 +3,7 @@ import type {
   AppSettings,
   BootstrapState,
   ExtractionResult,
+  FinalReportResult,
   SaveApiKeyResult,
   SessionRecord,
   TestConnectionResult,
@@ -18,6 +19,7 @@ export type RendererBridge = {
   getSession: (sessionId: string) => Promise<SessionRecord | null>;
   updateSession: (input: unknown) => Promise<SessionRecord>;
   runExtraction: (input: unknown) => Promise<ExtractionResult>;
+  finalizeReport: (input: unknown) => Promise<FinalReportResult>;
   createRealtimeSession: (offerSdp: string) => Promise<string>;
   exportLocalData: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
   deleteLocalData: () => Promise<{ ok: boolean }>;
@@ -194,6 +196,10 @@ export const mockBridge: RendererBridge = {
       parkedItems: [],
     };
   },
+  async finalizeReport(input: unknown): Promise<FinalReportResult> {
+    const parsed = input as { session: SessionRecord; unsavedDraft?: string };
+    return buildMockFinalReport(parsed.session, parsed.unsavedDraft ?? "");
+  },
   async createRealtimeSession() {
     return "Preview mode";
   },
@@ -247,6 +253,12 @@ const webBridge: RendererBridge = {
   },
   async runExtraction(input: unknown) {
     return fetchJson("/api/run-extraction", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  async finalizeReport(input: unknown) {
+    return fetchJson("/api/finalize-report", {
       method: "POST",
       body: JSON.stringify(input),
     });
@@ -308,4 +320,30 @@ async function fetchJson(path: string, init?: RequestInit) {
     throw new Error(await response.text());
   }
   return response.json();
+}
+
+function buildMockFinalReport(session: SessionRecord, unsavedDraft: string): FinalReportResult {
+  const userTurns = session.transcript.filter((entry) => entry.role === "user");
+  const assistantTurns = session.transcript.filter((entry) => entry.role === "assistant");
+  const pairs = userTurns.slice(-8).map((entry, index) => ({
+    problem: assistantTurns[index]?.text.split("\n").filter(Boolean).at(-1) ?? `Interview answer ${index + 1}`,
+    answer: entry.text,
+    evidence: "Preview mode generated this from saved transcript turns.",
+  }));
+
+  if (unsavedDraft.trim()) {
+    pairs.push({
+      problem: "Unsaved final note",
+      answer: unsavedDraft.trim(),
+      evidence: "Typed draft at finish time.",
+    });
+  }
+
+  return {
+    title: `${session.title} final report`,
+    summary: pairs.length > 0 ? `Prepared ${pairs.length} problem-answer item${pairs.length === 1 ? "" : "s"}.` : "No answered items were captured yet.",
+    problemAnswerPairs: pairs.length > 0 ? pairs : [{ problem: "대화 내용", answer: "아직 저장된 답변이 없습니다.", evidence: "No transcript turns." }],
+    keyPoints: pairs.slice(0, 5).map((pair) => pair.answer),
+    openQuestions: session.currentQuestion ? [session.currentQuestion] : ["No saved open question."],
+  };
 }
