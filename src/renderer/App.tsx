@@ -151,7 +151,7 @@ function buildFallbackProblemAnswerPairs(session: SessionRecord, unsavedDraft: s
     });
   }
 
-  return pairs.length > 0 ? pairs : [{ problem: "대화 내용", answer: "아직 저장된 답변이 없습니다." }];
+  return pairs.length > 0 ? pairs : [{ problem: "Conversation content", answer: "No saved answers yet." }];
 }
 
 function buildCompletedReport(

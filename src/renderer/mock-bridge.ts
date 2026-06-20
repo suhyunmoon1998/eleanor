@@ -342,7 +342,7 @@ function buildMockFinalReport(session: SessionRecord, unsavedDraft: string): Fin
   return {
     title: `${session.title} final report`,
     summary: pairs.length > 0 ? `Prepared ${pairs.length} problem-answer item${pairs.length === 1 ? "" : "s"}.` : "No answered items were captured yet.",
-    problemAnswerPairs: pairs.length > 0 ? pairs : [{ problem: "대화 내용", answer: "아직 저장된 답변이 없습니다.", evidence: "No transcript turns." }],
+    problemAnswerPairs: pairs.length > 0 ? pairs : [{ problem: "Conversation content", answer: "No saved answers yet.", evidence: "No transcript turns." }],
     keyPoints: pairs.slice(0, 5).map((pair) => pair.answer),
     openQuestions: session.currentQuestion ? [session.currentQuestion] : ["No saved open question."],
   };
