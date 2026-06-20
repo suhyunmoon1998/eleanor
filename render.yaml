@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: eleanor-web
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm ci && npm run build:web
+    startCommand: npm run start:web
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: ELEANOR_WEB_DATA_ROOT
+        value: /opt/render/project/src/app-data
+      - key: ELEANOR_API_KEY
+        sync: false
+    disk:
+      name: eleanor-data
+      mountPath: /opt/render/project/src/app-data
+      sizeGB: 1

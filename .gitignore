@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-server
+dist-electron
+release
+playwright-report
+test-results
+coverage
+.DS_Store
+*.log
+generated-data
+app-data-dev
+app-data-web

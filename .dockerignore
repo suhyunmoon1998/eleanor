@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-electron
+dist-server
+release
+app-data-web
+.git
+.DS_Store

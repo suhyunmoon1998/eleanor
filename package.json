@@ -1,0 +1,85 @@
+{
+  "name": "eleanor-v3-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production-oriented Eleanor v3 desktop application for Jack Law.",
+  "main": "dist-electron/main/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run import:sources && concurrently -k \"vite\" \"npm:dev:electron\"",
+    "dev:electron": "wait-on tcp:5173 file:dist-electron/main/index.js && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
+    "dev:web": "npm run import:sources && concurrently -k \"npm:dev:server\" \"vite\"",
+    "dev:server": "tsx watch src/server/index.ts",
+    "build": "npm run import:sources && npm run build:renderer && npm run build:electron",
+    "build:web": "npm run import:sources && npm run build:renderer && npm run build:server",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:server": "tsc -p tsconfig.server.json",
+    "dist": "npm run build && electron-builder",
+    "start:web": "node dist-server/server/index.js",
+    "import:sources": "tsx scripts/import-sources.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "lint:types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json && tsc --noEmit -p tsconfig.server.json"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.2.0",
+    "fastify": "^5.6.0",
+    "openai": "^6.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.2",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.0.0",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.3",
+    "vitest": "^3.2.4",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.jacklaw.eleanor",
+    "productName": "Eleanor v3",
+    "directories": {
+      "buildResources": "build-resources",
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "generated-data/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.business"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "eleanor-v3-live-jacklaw-brain-transfer",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Live Jack Law expertise-transfer application with OpenAI Realtime voice, structured extraction, and persistent sessions.",
+  "scripts": {
+    "start": "node server.mjs",
+    "launch": "node launch.mjs",
+    "check": "node --check server.mjs && node --check launch.mjs",
+    "test": "node smoke-test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

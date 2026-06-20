@@ -1,0 +1,549 @@
+You are the lead engineer responsible for building Eleanor v3 as a real, production-ready, one-click desktop application for Jack Law.
+
+This is not a demo, mock-up, static HTML page, or partial scaffold. Finish the implementation, run the tests, build installable artifacts, and leave the repository in a state another engineer can maintain.
+
+## 1. Read the repository and source material first
+
+Before editing code, inspect every relevant file in the repository. Important source files may include:
+
+- Draft_Expected_Trigger_List_Plain_Editable.docx
+- JackLaw_Streamlined_Master_List_Maker.html
+- Note_otter_ai_transcript.txt
+- Eleanor_v3_Trigger_Atlas.json
+- Eleanor_v3_Family_Index.csv
+- Eleanor_v3_Round_1A_Runtime_Prompt.txt
+- Eleanor_v3_Master_Interview_Architecture.md
+- any prior Eleanor v3 application or starter-package files
+- any README, prompt, schema, transcript, SOP, JSON, CSV, DOCX, HTML, or Markdown files related to CaseSync, triggers, rules, procedures, actions, case development, client management, or client development
+
+Treat the source files as confidential legal-practice material.
+
+If an earlier Eleanor codebase exists, audit it and reuse sound parts, but do not assume it works. Replace broken or demo-only architecture when necessary.
+
+Create TASK_PLAN.md after the audit. Then implement the plan. Do not stop after planning or scaffolding.
+
+## 2. Product objective
+
+Build “Eleanor v3,” a source-aware, enjoyable, highly efficient voice interviewer that transfers Jack Josephson’s expert practice knowledge into a structured, implementation-ready Jack Law / CaseSync operating system.
+
+Eleanor must:
+
+1. Know the expected litigation map before the interview begins.
+2. Use the 227 expected atomic triggers as a silent completeness map.
+3. Organize those triggers into 49 natural interview families across 14 chronological sections.
+4. Begin with provisional Jack Law knowledge already found in the supplied sources.
+5. Ask Jack to confirm, correct, complete, distinguish, or explain—not rebuild a blank questionnaire.
+6. Ask one primary question at a time.
+7. Avoid repetition by remembering direct and indirect answers.
+8. Capture ordinary procedure first, then selectively elicit expert judgment, leverage, strategy, case-development opportunities, client-management implications, and client-development leads.
+9. Separate legal rules, court or provider requirements, Jack Law procedures, strategic decisions, software logic, and provisional inferences.
+10. Never present a provisional rule as verified law or confirmed Jack Law policy.
+11. Preserve exact language where it matters, especially calendar titles, document names, communications, approvals, stop conditions, and completion evidence.
+12. Produce structured records that a developer can implement without guessing.
+
+## 3. Non-negotiable source principles
+
+The source material establishes that triggers can arise from at least three channels:
+
+- incoming material, including email, e-service, court, counsel, client, insurer, agency, arbitrator, mediator, medical office, expert, vendor, or other participant;
+- outgoing Jack Law work product, including letters, filings, discovery, forms, agreements, and other communications;
+- scanned, uploaded, dropped-off, or manually entered hard-copy material.
+
+The operative event is the trigger—not merely “an email arrived” or “a document was scanned.”
+
+Each trigger may produce multiple separate outputs, including:
+
+- rules and calculations;
+- several separate calendar entries;
+- reminders or ticklers;
+- document drafts;
+- communications;
+- filing or service actions;
+- case/list/PHS updates;
+- research or review;
+- assignments and follow-ups;
+- oversight and approval steps;
+- completion or close evidence;
+- downstream triggers.
+
+Jack Law supplies the hard rules and firm procedures. The application must not silently replace those rules with generic legal research. Legal items that have not been verified must remain clearly labeled “Needs Legal Verification.”
+
+## 4. Required interview program
+
+Support these rounds:
+
+- R0 — Calibration and vocabulary
+- R1A — Core chronology through 49 trigger families
+- R1B — Atomic 227-trigger validation and gap sweep
+- R2 — Rules, date engine, and exact calendar language
+- R3 — Documents, official forms, best samples, and communications
+- R4 — Judgment, leverage, negotiation, extensions, and ADR
+- R5 — Case development and value maximization
+- R6 — Client management and participation
+- R7 — Client development and ecosystem
+- R8 — Delegation, supervision, oversight, and quality control
+- R9 — Exceptions and adversarial stress testing
+- R10 — Real-case replay, validation, and optimization
+
+The first usable release must fully support R1A and the data structures needed for all later rounds.
+
+During R1A:
+
+- do not derail chronology to exhaust every strategic issue;
+- tag case-development leads for R5;
+- tag client-management leads for R6;
+- tag client-development leads for R7;
+- preserve answers about later stages and suppress duplicate questions later.
+
+## 5. Required desktop architecture
+
+Build a true one-click desktop app.
+
+Preferred stack:
+
+- Electron
+- React
+- TypeScript
+- Vite
+- electron-builder
+- official OpenAI JavaScript SDK
+- Zod for schemas
+- Vitest for unit/integration tests
+- Playwright for renderer/e2e smoke tests
+
+Do not require the end user to install Node, Python, Rust, Docker, or use a terminal after installation.
+
+Do not use a separate local web server as a runtime requirement. Use Electron main-process IPC as the trusted backend boundary.
+
+The Electron renderer must never receive the permanent OpenAI API key.
+
+### First launch
+
+On first launch:
+
+1. Open the application normally.
+2. Show a short setup screen.
+3. Ask for an OpenAI API key.
+4. Validate the key with a minimal safe request.
+5. Verify access to the configured Realtime and text models.
+6. Store the key using Electron safeStorage in the main process.
+7. Continue directly into Eleanor.
+
+On later launches, open directly to the saved or new interview screen.
+
+Provide a Settings screen where the user can:
+
+- replace or delete the API key;
+- test the connection;
+- choose the voice model;
+- choose the structured-extraction model;
+- select audio input/output devices where supported;
+- view local storage location;
+- export or delete local data.
+
+Never hard-code or commit an API key. Never expose it in renderer source, logs, exports, crash reports, or error messages.
+
+## 6. OpenAI integration
+
+Use current generally available OpenAI interfaces, not deprecated beta endpoints.
+
+### Voice
+
+Use the Realtime API over WebRTC.
+
+Default model:
+- gpt-realtime
+
+Optional lower-cost model:
+- gpt-realtime-mini
+
+Default voice:
+- marin
+
+The permanent API key stays in the Electron main process. The main process creates a short-lived client secret or performs the trusted session initialization using the current official GA Realtime API pattern. The renderer receives only the short-lived credential or SDP result required for WebRTC.
+
+Use semantic or server voice-activity detection where appropriate. Handle microphone permission denial, lost connectivity, interrupted speech, silence, and reconnects gracefully.
+
+Eleanor’s delivery instructions:
+
+“Speak as a warm, calm, highly competent British woman. Use natural modern British English, clear articulation, measured but efficient pacing, and restrained warmth. Keep most turns to one or two sentences. Ask one primary question at a time. Do not sound theatrical, breathless, patronizing, repetitive, or overly cheerful.”
+
+### Structured interview orchestration
+
+Do not rely only on free-form Realtime conversation for data capture.
+
+Implement a hybrid flow:
+
+1. Capture the completed user utterance and transcript.
+2. Send the transcript, current family/trigger context, prior confirmed knowledge, open loops, parked leads, and do-not-repeat memory to a main-process interview orchestrator.
+3. Call the Responses API with strict Zod Structured Outputs.
+4. Return:
+   - spoken_reply;
+   - capture_patch;
+   - next_question;
+   - question targets;
+   - priority reason;
+   - missing critical fields;
+   - trigger/family progress;
+   - case-development leads;
+   - client-management leads;
+   - client-development leads;
+   - contradictions;
+   - parked items;
+   - source confidence/status.
+5. Apply and persist the patch before asking the next question.
+6. Have the Realtime session speak the exact approved spoken_reply in Eleanor’s voice.
+7. If structured orchestration fails, preserve the transcript, show a recoverable error, and provide a retry path without losing the conversation.
+
+Default structured-extraction model:
+- gpt-5.2
+
+Lower-cost option:
+- gpt-5-mini
+
+Make model names configurable rather than scattered through the code.
+
+## 7. Data import and normalization
+
+Create a deterministic import/build pipeline, for example scripts/import-sources.ts.
+
+Parse the supplied source files and generate normalized app data.
+
+At minimum, produce:
+
+- trigger-atlas.json
+- family-index.json
+- prior-knowledge.json
+- nomenclature.json
+- source-index.json
+- interview-rounds.json
+
+Requirements:
+
+1. The atomic atlas must contain exactly 227 unique expected triggers.
+2. Preserve all 14 source sections.
+3. Map every atomic trigger to exactly one primary interview family.
+4. The family count must be 49 unless the supplied v3 family file establishes a corrected count.
+5. No atomic trigger may be dropped.
+6. No trigger may be silently duplicated.
+7. Preserve original source order and IDs.
+8. Preserve source provenance for every prefilled rule, action, calendar entry, document, nomenclature item, and inference.
+9. Mark imported but unconfirmed Jack Law material as provisional or “Needs Jack Review.”
+10. Mark unverified legal rules as “Needs Legal Verification.”
+11. Generate a human-readable import audit report.
+12. Add automated tests that fail if counts, mappings, provenance, or uniqueness are wrong.
+
+Use existing Eleanor v3 atlas/family files when present, but verify them against the DOCX and HTML source. The original DOCX and HTML are authoritative for completeness and prior candidate content.
+
+## 8. Knowledge model
+
+Implement these inheritance layers:
+
+1. Global Jack Law default
+2. Trigger-family default
+3. Atomic-trigger override
+4. Case-specific override
+
+Every field must support:
+
+- value;
+- status;
+- source/provenance;
+- speaker/date;
+- confidence;
+- inherited-from;
+- correction history;
+- unresolved question;
+- reviewer/approver;
+- legal-verification state.
+
+Core entities:
+
+- Section
+- InterviewFamily
+- AtomicTrigger
+- Rule
+- FirmProcedure
+- StrategicDecisionRule
+- GeneralAction
+- CalendarAction
+- DocumentOutput
+- CommunicationOutput
+- OversightControl
+- BranchOrException
+- CompletionEvidence
+- OpenLoop
+- Contradiction
+- SourceQuote
+- CaseDevelopmentLead
+- ClientManagementLead
+- ClientDevelopmentLead
+- InterviewSession
+- ConversationTurn
+- CapturePatch
+
+Do not flatten all information into one text blob.
+
+## 9. Interview logic
+
+Store the runtime prompt as a versioned resource file, not a giant inline string.
+
+After every answer, Eleanor should silently:
+
+1. Extract all relevant facts.
+2. Atomize independently occurring events.
+3. Link them to the chronology, triggers, branches, and downstream work.
+4. Apply inheritance and record explicit overrides.
+5. Update do-not-repeat memory.
+6. Score gaps.
+7. Ask the single shortest natural question that closes the highest-value gap.
+
+Gap priority:
+
+A. Missing preceding or following trigger that leaves a chronological gap  
+B. Branch or condition changing the deadline, action, or strategy  
+C. Deadline, service method, hearing calculation, or replacement date  
+D. Filing, service, contact, communication, document, or calendar output  
+E. Owner, reviewer, approver, automation boundary, or escalation  
+F. Completion evidence and downstream expected event  
+G. Exact naming or formatting that can safely wait  
+
+Interview depth modes:
+
+- Express: broad confirmation and only critical follow-up
+- Balanced: default
+- Teach the Move: invite deeper expert explanation at meaningful judgment points
+
+Efficiency rules:
+
+- one primary question per turn;
+- never read the 227-trigger atlas aloud;
+- do not ask a fact already answered directly or indirectly;
+- do not summarize every answer;
+- summarize when closing a family, resolving a contradiction, or moving sections;
+- allow “skip,” “park it,” “go back,” “keep going,” “show me the entry,” “what is missing,” “commit that,” and “stop here”;
+- preserve long, natural answers and extract several fields from one answer;
+- do not force Jack to speak in database terminology.
+
+## 10. Exact opening
+
+On the first live R1A session, Eleanor must say:
+
+“Good. I already have the expected litigation map and the provisional Jack Law material, so I will not make you rebuild a blank checklist. We will move section by section. You can speak naturally; I will separate the triggers, rules, actions, judgment calls, and development opportunities, and I will stop only for something that materially changes the practice.”
+
+Then ask:
+
+“Let’s begin with the first chapter: lead, screening, consultation, conflict, acceptance, engagement, and opening the matter. Walk me through Jack Law’s actual sequence from the first contact to the point you consider the case safely opened—correcting anything in that order and telling me what you do first.”
+
+## 11. User interface
+
+Create a polished, calm, professional desktop interface designed for a long voice interview.
+
+Required screens/tabs:
+
+- Interview
+- Trigger Atlas
+- Expertise Ledger
+- Case Development Leads
+- Client Management Leads
+- Client Development Leads
+- Open Questions / Contradictions
+- Sources
+- Sessions
+- Settings
+
+Interview screen must show:
+
+- connection and microphone status;
+- current section and family;
+- atomic triggers covered by the family;
+- Eleanor’s current question;
+- live user and Eleanor transcript;
+- concise structured capture preview;
+- progress;
+- buttons for Start, Pause, Resume, End, Mute, Repeat, Skip/Park, Go Back, Show Entry, Commit, and Stop Here;
+- clear recoverable error states;
+- autosave status.
+
+Do not expose hidden chain-of-thought. Show only concise capture summaries, sources, statuses, and unresolved questions.
+
+Provide search and filters for trigger ID, phase, participant, source channel, status, round, and unresolved fields.
+
+Support keyboard navigation and accessible labels. The design should feel refined and pleasant rather than dense or database-like.
+
+## 12. Persistence, confidentiality, and recovery
+
+This application may contain privileged and confidential legal-practice information.
+
+Requirements:
+
+- no telemetry by default;
+- no analytics;
+- no remote database;
+- no source upload to third parties except the specific OpenAI API calls initiated by the user;
+- encrypt local session and expertise files at rest with AES-256-GCM;
+- generate a random local data-encryption key;
+- protect that key with Electron safeStorage;
+- redact secrets from logs;
+- keep logs minimal;
+- rotate local backups;
+- autosave every accepted turn;
+- recover the last session after a crash or restart;
+- allow complete local deletion;
+- default raw audio recording to OFF;
+- if raw audio recording is enabled, require explicit consent and clearly show it;
+- never include the API key or encrypted key material in exports.
+
+Exports:
+
+- structured JSON;
+- readable Markdown;
+- CSV for trigger/action review;
+- optional encrypted full-session backup.
+
+## 13. Legal and operational guardrails
+
+Eleanor is an expertise-capture tool, not a production calendaring or filing engine in this release.
+
+- Do not claim legal rules are verified unless their status says so.
+- Do not auto-file, auto-serve, send email, or alter a real calendar.
+- Do not calculate a real legal deadline as final without human confirmation.
+- Clearly distinguish:
+  - Confirmed by Jack
+  - Provisional inference
+  - Unknown / parked
+  - Needs Firm Confirmation
+  - Needs Legal Verification
+  - Drafted
+  - Approved for Programming
+  - Programmed
+  - Tested
+  - Not Applicable
+
+## 14. Build and release
+
+Configure electron-builder to produce:
+
+macOS:
+- universal DMG if practical;
+- otherwise separate arm64 and x64 builds;
+- ZIP app artifact.
+
+Windows:
+- x64 NSIS installer EXE;
+- portable ZIP if practical.
+
+Create GitHub Actions workflows that build and test on macOS and Windows runners and upload artifacts.
+
+Code signing/notarization may remain optional because credentials are not supplied. Document the exact signing/notarization environment variables and steps. Produce unsigned local artifacts where the current environment allows.
+
+The installed application must launch by double-clicking. The user must not need to run npm, node, a shell script, localhost server, or terminal command.
+
+## 15. Testing and acceptance criteria
+
+Add and run tests for:
+
+### Data integrity
+- exactly 227 unique atomic triggers;
+- every trigger mapped once;
+- all 14 sections present;
+- correct family count;
+- no duplicate IDs;
+- source provenance retained;
+- invalid patches rejected.
+
+### Security
+- permanent API key unavailable to renderer;
+- API key absent from built JavaScript and exports;
+- safeStorage wrapper tested;
+- encrypted session round-trip tested;
+- logs redact secrets.
+
+### Interview behavior
+- opening script is exact;
+- one primary question at a time;
+- answered fields are not asked again;
+- indirect answers update do-not-repeat memory;
+- skipped items are parked;
+- contradictions are recorded rather than silently overwritten;
+- later-stage information is retained;
+- family completion requires completion evidence or an explicit parked status.
+
+### Application behavior
+- first-run setup opens;
+- key test has success and actionable failure states;
+- app opens without a key and does not crash;
+- Realtime session can be mocked in tests;
+- user transcript produces a valid structured patch;
+- restart resumes prior session;
+- JSON/Markdown/CSV exports validate;
+- settings can delete the key and local data;
+- renderer smoke test passes;
+- production build succeeds.
+
+Use mocks for automated API tests. If a real API key is present in the environment, add an optional non-default live smoke test.
+
+Run:
+
+- typecheck
+- lint
+- unit tests
+- integration tests
+- e2e smoke tests
+- production renderer build
+- Electron packaging for the host platform
+
+Fix failures before finishing.
+
+## 16. Documentation and repository quality
+
+Create or update:
+
+- AGENTS.md
+- README.md
+- SECURITY.md
+- PRIVACY.md
+- docs/ARCHITECTURE.md
+- docs/INTERVIEW_ENGINE.md
+- docs/DATA_MODEL.md
+- docs/SOURCE_IMPORT.md
+- docs/BUILD_AND_RELEASE.md
+- docs/TROUBLESHOOTING.md
+- .env.example without secrets
+- CHANGELOG.md
+
+AGENTS.md must tell future Codex agents:
+
+- where source-of-truth files live;
+- how to regenerate normalized data;
+- required tests;
+- confidentiality rules;
+- prohibition against committing secrets;
+- requirement not to change trigger counts or mappings without an explicit migration and audit.
+
+## 17. Execution rules for this task
+
+- Do not merely describe what should be built.
+- Do not stop at a static prototype.
+- Do not leave buttons disconnected.
+- Do not use fake transcripts or fake “live” indicators in production mode.
+- Do not put the permanent API key in the renderer.
+- Do not ask routine implementation questions; make sound engineering decisions and document them.
+- If a platform limitation prevents a particular binary from being built in this environment, complete the source, tests, packaging configuration, and CI workflow, build the host-platform artifact, and state exactly which remote artifacts the CI workflow will produce.
+- Prefer maintainable, typed, testable code over clever shortcuts.
+- Keep source materials intact.
+- Commit generated normalized data and the import audit so the app is immediately usable after installation.
+
+## 18. Completion report
+
+At the end:
+
+1. Summarize the architecture and major decisions.
+2. List every file added or materially changed.
+3. Report all test/build commands and their results.
+4. Give exact paths to installable artifacts.
+5. State any limitation honestly.
+6. Confirm whether each acceptance criterion passed.
+7. Provide the shortest possible end-user launch instructions.
+
+Begin by auditing the repository and source files now. Then implement Eleanor v3 end to end.
