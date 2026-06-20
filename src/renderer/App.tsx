@@ -489,7 +489,7 @@ export function App() {
   const { data } = loadState;
 
   return (
-    <div className="shell">
+    <div className={`shell ${activeSession ? "shell-focus" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
           <p className="eyebrow">Jack Law</p>
@@ -804,74 +804,77 @@ function InterviewView(props: {
         </section>
       ) : (
         <section className="workspace">
-          <div className="workspace-header">
+          <div className="room-topbar">
             <div>
-              <p className="eyebrow">{props.activeSession.familyId}</p>
-              <h2>{props.activeSession.title}</h2>
+              <p className="eyebrow">Live Interview</p>
+              <h2>{props.activeSession.familyId}</h2>
             </div>
-            <button className="button button-secondary" onClick={props.onBackToMap}>End</button>
+            <div className="topbar-actions">
+              <button className="quiet-button" onClick={() => void props.onStartLiveVoice()} disabled={!props.liveAvailable}>
+                {props.liveConnected ? "Repeat" : "Start Voice"}
+              </button>
+              <button className="quiet-button" onClick={props.micPaused ? props.onResumeCapture : props.onPauseCapture} disabled={!props.liveConnected}>
+                {props.micPaused ? "Resume" : "Pause"}
+              </button>
+              <button className="quiet-button" onClick={props.onToggleMute} disabled={!props.liveConnected}>
+                {props.micPaused ? "Unmute" : "Mute"}
+              </button>
+              <button className="quiet-button" onClick={props.onBackToMap}>Finish</button>
+            </div>
           </div>
 
-          <div className="workspace-grid">
-            <section className="card tall">
-              <p className="section-title">Talk</p>
-              <div className={`live-box ${props.liveConnected ? "live-box-on" : ""}`}>
+          <section className="interview-room">
+            <div className={`status-pill ${props.liveConnected ? "status-pill-live" : ""}`}>
+              <span>{props.provider === "openai" ? (props.liveConnected ? "Live" : "Ready") : "Typed only"}</span>
+              <p>{props.liveStatus}</p>
+            </div>
+
+            <article className="question-card">
+              <p className="eyebrow">Eleanor asks</p>
+              <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
+              <p className="hint">Answer out loud. Eleanor will not analyze or advance until you press Next.</p>
+            </article>
+
+            <article className="answer-card">
+              <div className="answer-card-header">
                 <div>
-                  <strong>{props.provider === "openai" ? "Live" : "Typed Only"}</strong>
-                  <p>{props.liveStatus}</p>
+                  <p className="eyebrow">Your Answer</p>
+                  <h3>Speak naturally. Edit only if needed.</h3>
                 </div>
-                <div className="live-actions">
-                  <button className="button" onClick={() => void props.onStartLiveVoice()} disabled={!props.liveAvailable}>
-                    {props.provider === "openai" ? (props.liveConnected ? "Repeat Question" : "Start Voice") : "Voice Off"}
-                  </button>
-                  <button className="button button-secondary" onClick={props.onPauseCapture} disabled={!props.liveConnected || props.micPaused}>
-                    Pause
-                  </button>
-                  <button className="button button-secondary" onClick={props.onResumeCapture} disabled={!props.liveConnected || !props.micPaused}>
-                    Resume
-                  </button>
-                  <button className="button button-secondary" onClick={props.onToggleMute} disabled={!props.liveConnected}>
-                    {props.micPaused ? "Unmute" : "Mute"}
-                  </button>
-                  <button className="button button-secondary" onClick={props.onStopLiveVoice} disabled={!props.liveConnected}>
-                    Stop
-                  </button>
-                </div>
+                <button className="quiet-button" onClick={() => answerDraftRef.current?.focus()} disabled={props.isExtracting}>
+                  Edit Transcript
+                </button>
               </div>
-              <div className="turn-state">
-                <span>AI question</span>
-                <p>{props.activeSession.currentQuestion || "Eleanor will ask the opening question aloud."}</p>
+
+              <div className="live-transcript-line">
+                <span>Live transcript</span>
+                <p>{props.liveTranscriptPreview || "Waiting for your voice..."}</p>
               </div>
-              <div className="turn-state turn-state-live">
-                <span>Interim live transcription</span>
-                <p>{props.liveTranscriptPreview || "Speak naturally. Nothing is finalized until you click Next."}</p>
-              </div>
-              <div className="transcript">
-                {props.activeSession.transcript.length === 0 ? <p className="hint">No turns yet.</p> : null}
-                {props.activeSession.transcript.map((entry) => (
-                  <div key={entry.id} className={`bubble bubble-${entry.role}`}>
-                    <span>{entry.role}</span>
-                    <p>{entry.text}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="turn-state">
-                <span>Finalized answer draft</span>
-                <p>Edit this text before clicking Next. Next is the only control that sends the answer for analysis.</p>
-              </div>
+
               <textarea
                 ref={answerDraftRef}
-                className="textarea"
+                className="textarea answer-textarea"
                 value={props.note}
                 onChange={(event) => props.onChangeNote(event.target.value)}
-                placeholder="Finalized answer draft. You can edit this before clicking Next."
+                placeholder="Your finalized answer will appear here. You can edit it before clicking Next."
               />
-              <div className="turn-actions">
-                <button className="button button-large" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
-                  {props.isExtracting ? "Analyzing your answer…" : "Next"}
+
+              <div className="next-row">
+                <button className="button button-large next-button" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
+                  {props.isExtracting ? "Analyzing..." : "Next"}
                 </button>
-                <button className="button button-secondary" onClick={() => answerDraftRef.current?.focus()} disabled={props.isExtracting}>
-                  Edit Transcript
+                <p>{props.isExtracting ? "Eleanor is updating memory and preparing one next question." : "Next saves this answer and moves the interview forward."}</p>
+              </div>
+            </article>
+
+            <details className="quiet-panel">
+              <summary>More controls and notes</summary>
+              <div className="quiet-panel-grid">
+                <button className="button button-secondary" onClick={props.onResumeCapture} disabled={!props.liveConnected || !props.micPaused}>
+                  Resume
+                </button>
+                <button className="button button-secondary" onClick={props.onStopLiveVoice} disabled={!props.liveConnected}>
+                  Stop Audio
                 </button>
                 <button className="button button-secondary" disabled={props.isExtracting}>
                   Skip / Park
@@ -892,47 +895,18 @@ function InterviewView(props: {
                   Finish Interview
                 </button>
               </div>
-            </section>
 
-            <section className="card tall">
-              <p className="section-title">Next Step</p>
-              {!props.lastExtraction ? <p className="hint">Nothing yet.</p> : null}
-              {props.lastExtraction ? (
-                <div className="stack">
-                  <div>
-                    <strong>Reply</strong>
-                    <p>{props.lastExtraction.spokenReply}</p>
+              <div className="transcript compact-transcript">
+                {props.activeSession.transcript.length === 0 ? <p className="hint">No transcript turns yet.</p> : null}
+                {props.activeSession.transcript.map((entry) => (
+                  <div key={entry.id} className={`bubble bubble-${entry.role}`}>
+                    <span>{entry.role}</span>
+                    <p>{entry.text}</p>
                   </div>
-                  <div>
-                    <strong>Ask</strong>
-                    <p>{props.lastExtraction.nextQuestion}</p>
-                  </div>
-                  <div>
-                    <strong>Missing</strong>
-                    <p>{props.lastExtraction.missingCriticalFields.join(", ") || "None listed"}</p>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-
-            <section className="card tall">
-              <p className="section-title">Progress</p>
-              <div className="stack">
-                <div>
-                  <strong>Confirmed</strong>
-                  <p>{(props.activeSession.progress[props.activeSession.familyId] ?? []).join(", ") || "None yet"}</p>
-                </div>
-                <div>
-                  <strong>Pending</strong>
-                  <p>{props.activeSession.currentQuestion || "No saved next question yet"}</p>
-                </div>
-                <div>
-                  <strong>Missing</strong>
-                  <p>{props.activeSession.missingCriticalFields.join(", ") || "None currently tracked"}</p>
-                </div>
+                ))}
               </div>
-            </section>
-          </div>
+            </details>
+          </section>
         </section>
       )}
     </>

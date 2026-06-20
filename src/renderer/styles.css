@@ -37,6 +37,14 @@ textarea {
   min-height: 100vh;
 }
 
+.shell-focus {
+  grid-template-columns: 1fr;
+}
+
+.shell-focus .sidebar {
+  display: none;
+}
+
 .loading {
   place-items: center;
   display: grid;
@@ -298,77 +306,6 @@ textarea {
   font-size: 1.12rem;
 }
 
-.workspace {
-  display: grid;
-  gap: 18px;
-}
-
-.live-box {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  justify-content: space-between;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 12px 14px;
-  background: rgba(255, 249, 239, 0.72);
-}
-
-.live-box p,
-.live-box strong {
-  margin: 0;
-}
-
-.live-box p {
-  color: var(--muted);
-  margin-top: 4px;
-}
-
-.live-box-on {
-  background: #e4f3ed;
-  border-color: rgba(19, 75, 66, 0.24);
-}
-
-.live-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.turn-state {
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 12px 14px;
-  background: rgba(255, 249, 239, 0.72);
-}
-
-.turn-state span {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--accent);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.turn-state p {
-  margin: 0;
-  color: var(--muted);
-  white-space: pre-wrap;
-}
-
-.turn-state-live {
-  background: #eef6f1;
-  border-color: rgba(19, 75, 66, 0.18);
-}
-
-.turn-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .segmented {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -393,16 +330,173 @@ textarea {
   box-shadow: 0 8px 24px rgba(44, 29, 17, 0.08);
 }
 
-.workspace-header {
+.workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.room-topbar {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.room-topbar h2 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.quiet-button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 9px 14px;
+  background: rgba(255, 249, 239, 0.72);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.quiet-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.interview-room {
+  display: grid;
+  gap: 18px;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.status-pill {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: rgba(255, 249, 239, 0.72);
+  color: var(--muted);
+}
+
+.status-pill span {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.status-pill p {
+  margin: 0;
+}
+
+.status-pill-live {
+  background: #e4f3ed;
+  border-color: rgba(19, 75, 66, 0.22);
+}
+
+.question-card,
+.answer-card,
+.quiet-panel {
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.question-card {
+  padding: clamp(28px, 5vw, 54px);
+}
+
+.question-card h2 {
+  max-width: 18ch;
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.answer-card {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.answer-card-header,
+.next-row {
+  display: flex;
+  gap: 16px;
   align-items: center;
   justify-content: space-between;
 }
 
-.workspace-grid {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr 0.9fr;
-  gap: 16px;
+.answer-card-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.live-transcript-line {
+  border-radius: 22px;
+  padding: 16px 18px;
+  background: #eef6f1;
+  border: 1px solid rgba(19, 75, 66, 0.16);
+}
+
+.live-transcript-line span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.live-transcript-line p,
+.next-row p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.answer-textarea {
+  min-height: 180px;
+  font-size: 1.08rem;
+  line-height: 1.5;
+}
+
+.next-button {
+  min-width: 180px;
+}
+
+.quiet-panel {
+  padding: 16px 18px;
+}
+
+.quiet-panel summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.quiet-panel-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.compact-transcript {
+  margin-top: 16px;
+  max-height: 260px;
 }
 
 .tall {
