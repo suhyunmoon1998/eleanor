@@ -23,6 +23,10 @@ export class SourceRepository {
         expected_triggers?: Array<unknown>;
         section_titles?: string[];
         risk?: string;
+        prior_summary?: string;
+        prior_rules?: Array<unknown>;
+        prior_actions?: Array<unknown>;
+        prior_branch_questions?: string[];
       }>;
     }>("trigger-atlas.json");
   }

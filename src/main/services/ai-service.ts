@@ -90,6 +90,19 @@ type TestConnectionResult = {
 };
 
 const ANTHROPIC_VERSION = "2023-06-01";
+const MAX_TEXT_FIELD_CHARS = 900;
+const MAX_TRANSCRIPT_TURNS_FOR_FINAL_REPORT = 50;
+const MAX_CAPTURE_FIELDS = 40;
+
+function compactText(value: unknown, maxChars = MAX_TEXT_FIELD_CHARS) {
+  if (typeof value !== "string") return value;
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > maxChars ? `${normalized.slice(0, maxChars - 1).trim()}…` : normalized;
+}
+
+function compactArray<T>(value: T[] | undefined, maxItems: number): T[] {
+  return Array.isArray(value) ? value.slice(0, maxItems) : [];
+}
 
 export class AIService {
   constructor(
@@ -226,7 +239,7 @@ export class AIService {
 
   private async runOpenAIExtraction(input: ExtractionPayload, settings: AppSettings) {
     const client = await this.getOpenAIClient();
-    const { family, familyAtlas } = await this.getExtractionContext(input.familyId);
+    const extractionPayload = await this.buildCompactExtractionPayload(input);
 
     const response = await client.responses.parse({
       model: settings.extractionModel,
@@ -246,23 +259,12 @@ export class AIService {
           content: [
             {
               type: "input_text",
-              text: JSON.stringify(
-                {
-                  family,
-                  familyAtlas,
-                  currentQuestion: input.currentQuestion ?? "",
-                  transcript: input.transcript,
-                  priorCapture: input.priorCapture ?? {},
-                  openLoops: input.openLoops ?? [],
-                  parkedItems: input.parkedItems ?? [],
-                },
-                null,
-                2,
-              ),
+              text: JSON.stringify(extractionPayload),
             },
           ],
         },
       ],
+      max_output_tokens: 1800,
       text: {
         format: zodTextFormat(extractionSchema, "eleanor_interview_result"),
       },
@@ -276,6 +278,7 @@ export class AIService {
 
   private async runOpenAIFinalReport(input: FinalReportPayload, settings: AppSettings) {
     const client = await this.getOpenAIClient();
+    const compactPayload = this.buildCompactFinalReportPayload(input);
     const response = await client.responses.parse({
       model: settings.extractionModel,
       instructions: this.buildFinalReportInstructions(),
@@ -285,11 +288,12 @@ export class AIService {
           content: [
             {
               type: "input_text",
-              text: JSON.stringify(input, null, 2),
+              text: JSON.stringify(compactPayload),
             },
           ],
         },
       ],
+      max_output_tokens: 2200,
       text: {
         format: zodTextFormat(finalReportResultSchema, "eleanor_final_problem_answer_report"),
       },
@@ -302,16 +306,7 @@ export class AIService {
   }
 
   private async runAnthropicExtraction(input: ExtractionPayload, settings: AppSettings) {
-    const { family, familyAtlas } = await this.getExtractionContext(input.familyId);
-    const requestPayload = {
-      family,
-      familyAtlas,
-      currentQuestion: input.currentQuestion ?? "",
-      transcript: input.transcript,
-      priorCapture: input.priorCapture ?? {},
-      openLoops: input.openLoops ?? [],
-      parkedItems: input.parkedItems ?? [],
-    };
+    const requestPayload = await this.buildCompactExtractionPayload(input);
 
     const system = [
       buildExtractionInstructions(),
@@ -331,13 +326,14 @@ export class AIService {
           content: JSON.stringify(requestPayload, null, 2),
         },
       ],
-      max_tokens: 2400,
+      max_tokens: 1800,
     }, settings.fallbackExtractionModel);
 
     return normalizeExtractionResult(extractionSchema.parse(JSON.parse(this.extractJsonText(body))));
   }
 
   private async runAnthropicFinalReport(input: FinalReportPayload, settings: AppSettings) {
+    const compactPayload = this.buildCompactFinalReportPayload(input);
     const body = await this.createAnthropicMessage(settings.extractionModel, {
       system: [
         this.buildFinalReportInstructions(),
@@ -347,10 +343,10 @@ export class AIService {
       messages: [
         {
           role: "user",
-          content: JSON.stringify(input, null, 2),
+          content: JSON.stringify(compactPayload),
         },
       ],
-      max_tokens: 2400,
+      max_tokens: 2200,
     }, settings.fallbackExtractionModel);
 
     return finalReportResultSchema.parse(JSON.parse(this.extractJsonText(body)));
@@ -370,6 +366,98 @@ export class AIService {
       "Prefer 3 to 12 high-signal pairs over many tiny fragments.",
       "Keep summary short. keyPoints should capture what matters most. openQuestions should list unresolved items.",
     ].join("\n");
+  }
+
+  private async buildCompactExtractionPayload(input: ExtractionPayload) {
+    const { family, familyAtlas } = await this.getExtractionContext(input.familyId);
+    return {
+      family,
+      familyAtlas: this.compactFamilyAtlas(familyAtlas),
+      currentQuestion: compactText(input.currentQuestion ?? "", 500),
+      transcript: compactText(input.transcript, 1800),
+      priorCapture: this.compactRecord(input.priorCapture ?? {}, MAX_CAPTURE_FIELDS),
+      openLoops: compactArray(input.openLoops, 12).map((item) => compactText(item, 240)),
+      parkedItems: compactArray(input.parkedItems, 12).map((item) => compactText(item, 240)),
+    };
+  }
+
+  private buildCompactFinalReportPayload(input: FinalReportPayload) {
+    const session = input.session;
+    const transcript = session.transcript
+      .slice(-MAX_TRANSCRIPT_TURNS_FOR_FINAL_REPORT)
+      .map((entry) => ({
+        role: entry.role,
+        text: compactText(entry.text, 1200),
+      }));
+
+    return {
+      session: {
+        title: session.title,
+        familyId: session.familyId,
+        transcript,
+        capture: this.compactRecord(session.capture, MAX_CAPTURE_FIELDS),
+        leads: compactArray(session.leads, 30).map((lead) => ({
+          kind: lead.kind,
+          text: compactText(lead.text, 280),
+        })),
+        contradictions: compactArray(session.contradictions, 16).map((item) => compactText(item, 280)),
+        currentQuestion: compactText(session.currentQuestion, 500),
+        missingCriticalFields: compactArray(session.missingCriticalFields, 16).map((item) => compactText(item, 240)),
+      },
+      lastExtraction: input.lastExtraction
+        ? {
+            spokenReply: compactText(input.lastExtraction.spokenReply, 500),
+            nextQuestion: compactText(input.lastExtraction.nextQuestion, 500),
+            priorityReason: compactText(input.lastExtraction.priorityReason, 400),
+            missingCriticalFields: compactArray(input.lastExtraction.missingCriticalFields, 16).map((item) => compactText(item, 240)),
+            atomicTriggerIds: compactArray(input.lastExtraction.atomicTriggerIds, 24),
+          }
+        : null,
+      unsavedDraft: compactText(input.unsavedDraft ?? "", 1200),
+    };
+  }
+
+  private compactFamilyAtlas(familyAtlas: Awaited<ReturnType<SourceRepository["getAtlas"]>>["families"][number] | undefined) {
+    if (!familyAtlas) return null;
+
+    return {
+      family_id: familyAtlas.family_id,
+      title: familyAtlas.title,
+      section_titles: familyAtlas.section_titles ?? [],
+      expected_triggers: compactArray(familyAtlas.expected_triggers, 20).map((trigger) => {
+        if (!trigger || typeof trigger !== "object") return trigger;
+        const typedTrigger = trigger as { atlas_id?: unknown; number?: unknown; name?: unknown };
+        return {
+          atlas_id: typedTrigger.atlas_id,
+          number: typedTrigger.number,
+          name: compactText(typedTrigger.name, 180),
+        };
+      }),
+      interview_goal: compactText(familyAtlas.interview_goal, 500),
+      risk: familyAtlas.risk,
+      prior_summary: compactText(familyAtlas.prior_summary, 700),
+      prior_rules: compactArray(familyAtlas.prior_rules, 3).map((rule) => this.compactPriorItem(rule)),
+      prior_actions: compactArray(familyAtlas.prior_actions, 8).map((action) => this.compactPriorItem(action)),
+      prior_branch_questions: compactArray(familyAtlas.prior_branch_questions, 10).map((item) => compactText(item, 220)),
+    };
+  }
+
+  private compactPriorItem(item: unknown) {
+    if (!item || typeof item !== "object") return compactText(item, 500);
+    const record = item as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(record)
+        .slice(0, 6)
+        .map(([key, value]) => [key, compactText(value, key === "text" ? 450 : 220)]),
+    );
+  }
+
+  private compactRecord(record: Record<string, unknown>, maxEntries: number) {
+    return Object.fromEntries(
+      Object.entries(record)
+        .slice(-maxEntries)
+        .map(([key, value]) => [key, typeof value === "string" ? compactText(value, 500) : value]),
+    );
   }
 
   private async getExtractionContext(familyId: string) {
