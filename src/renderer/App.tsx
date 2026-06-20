@@ -641,6 +641,7 @@ export function App() {
       family.expectedTriggerNames.length > 0
         ? `Expected triggers: ${family.expectedTriggerNames.join("; ")}`
         : "",
+      "Speech understanding rule: Jack may mispronounce terms or mix Korean and English. Use the family title, expected triggers, prior answers, and legal/process context to infer the intended term when clear. If uncertain, ask a short confirmation question before saving it.",
       session.lastAssistantReply ? `Last approved reply: ${session.lastAssistantReply}` : "",
       session.currentQuestion ? `Saved pending question: ${session.currentQuestion}` : "",
       session.lastPriorityReason ? `Priority reason: ${session.lastPriorityReason}` : "",
@@ -666,6 +667,7 @@ export function App() {
       "Speak naturally in Eleanor's voice.",
       "Use the approved reply as the substance of your response, then ask the approved next question.",
       "If the user's last turn included a question, make sure the reply answers it clearly before the follow-up.",
+      "If the transcript seems like a pronunciation or speech-to-text mistake, infer the likely intended process/legal term only when the context is strong. If not, ask a concise confirmation question.",
       "Keep it concise and conversational. Do not add unrelated commentary.",
       family ? `Current family: ${family.familyId} — ${family.title}` : "",
       `Approved reply: ${result.spokenReply}`,
@@ -1052,7 +1054,7 @@ function InterviewView(props: {
         <div>
           <p className="eyebrow">AI Meeting Notes</p>
           <h2>Record the conversation. Eleanor takes the notes.</h2>
-          <p>Speak naturally. The transcript, questions, and summary stay organized as you go.</p>
+          <p>Speak naturally. Mispronunciations are okay; Eleanor uses context to find the intended term.</p>
         </div>
       </section>
 
@@ -1063,7 +1065,7 @@ function InterviewView(props: {
             <h2>Start recording</h2>
             <p className="start-copy">
               Click once, allow the microphone, then talk like a normal meeting.
-              Eleanor listens, replies, keeps the transcript, and prepares a clean summary.
+              Eleanor listens, cleans up likely speech mistakes, keeps the transcript, and prepares a clean summary.
             </p>
             <div className="start-actions">
               <button
@@ -1128,7 +1130,7 @@ function InterviewView(props: {
                   </div>
                   <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Live voice"}</p>
                   <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
-                  <p className="hint">Keep talking naturally. Eleanor will capture the answer, respond, and move to the next question.</p>
+                  <p className="hint">Keep talking naturally. If a word sounds off, Eleanor will infer it from context or ask you to confirm.</p>
                 </article>
 
                 <article className="answer-card">
