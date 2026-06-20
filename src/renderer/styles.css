@@ -250,35 +250,52 @@ textarea {
   margin-bottom: 20px;
 }
 
-.family-grid {
+.start-panel {
+  min-height: calc(100vh - 230px);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  place-items: center;
 }
 
-.family-card {
-  padding: 18px;
+.start-card {
+  width: min(720px, 100%);
+  padding: 46px;
   display: grid;
-  gap: 12px;
+  gap: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(19, 75, 66, 0.12), transparent 34%),
+    var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 32px;
+  box-shadow: var(--shadow);
+  text-align: center;
 }
 
-.family-actions {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  align-items: center;
+.start-card h2 {
+  margin: 0;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
 }
 
-.family-card p {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.start-copy {
+  max-width: 52ch;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.55;
 }
 
-.family-meta {
-  color: var(--accent);
-  font-size: 0.82rem;
+.start-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.button-large {
+  min-width: min(100%, 320px);
+  padding: 18px 28px;
+  font-size: 1.12rem;
 }
 
 .workspace {

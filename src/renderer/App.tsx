@@ -609,6 +609,7 @@ export function App() {
             liveAvailable={liveRuntimeAvailable}
             provider={data.settings.provider}
             onBackToMap={() => {
+              handleStopLiveVoice();
               setActiveSession(null);
               setLastExtraction(null);
             }}
@@ -748,40 +749,51 @@ function InterviewView(props: {
   onStartLiveVoice: () => Promise<void>;
   onStopLiveVoice: () => void;
 }) {
+  const startingFamily = props.data.families[0];
+  const startingTitle = startingFamily ? `${startingFamily.familyId} — ${startingFamily.title}` : "Eleanor Interview";
+
   return (
     <>
       <section className="hero">
         <div>
           <p className="eyebrow">Interview</p>
-          <h2>Pick a family and talk.</h2>
-          <p>Eleanor listens, captures, and asks the next question.</p>
+          <h2>Press start, then talk.</h2>
+          <p>Eleanor listens, writes it down, and finds the next question.</p>
         </div>
       </section>
 
       {!props.activeSession ? (
-        <section className="family-grid">
-          {props.data.families.map((family) => (
-            <article key={family.familyId} className="family-card">
-              <div className="family-meta">
-                <span>{family.familyId}</span>
-                <span>{family.triggerCount} triggers</span>
-              </div>
-              <h3>{family.title}</h3>
-              <p>{family.interviewGoal}</p>
-              <div className="family-actions">
-                <button
-                  className="button"
-                  onClick={() => void props.onCreateVoiceSession(family.familyId, `${family.familyId} — ${family.title}`)}
-                  disabled={!props.liveAvailable}
-                >
-                  Start Voice
-                </button>
-                <button className="button button-secondary" onClick={() => void props.onCreateSession(family.familyId, `${family.familyId} — ${family.title}`)}>
-                  Type
-                </button>
-              </div>
-            </article>
-          ))}
+        <section className="start-panel">
+          <article className="start-card">
+            <p className="eyebrow">Voice First</p>
+            <h2>Start Eleanor</h2>
+            <p className="start-copy">
+              Click once, allow the microphone, then speak naturally. Eleanor will capture your answer,
+              keep the transcript, and ask the next useful question.
+            </p>
+            <div className="start-actions">
+              <button
+                className="button button-large"
+                onClick={() => startingFamily && void props.onCreateVoiceSession(startingFamily.familyId, startingTitle)}
+                disabled={!startingFamily || !props.liveAvailable}
+              >
+                Start Interview
+              </button>
+              <button
+                className="button button-secondary"
+                onClick={() => startingFamily && void props.onCreateSession(startingFamily.familyId, startingTitle)}
+                disabled={!startingFamily}
+              >
+                Type Instead
+              </button>
+            </div>
+            <p className="hint">
+              {startingFamily
+                ? `Starting with ${startingFamily.familyId}: ${startingFamily.title}`
+                : "No interview families are loaded yet."}
+            </p>
+            {!props.liveAvailable ? <p className="danger">Voice needs OpenAI connected in Render.</p> : null}
+          </article>
         </section>
       ) : (
         <section className="workspace">
@@ -790,7 +802,7 @@ function InterviewView(props: {
               <p className="eyebrow">{props.activeSession.familyId}</p>
               <h2>{props.activeSession.title}</h2>
             </div>
-            <button className="button button-secondary" onClick={props.onBackToMap}>Back</button>
+            <button className="button button-secondary" onClick={props.onBackToMap}>End</button>
           </div>
 
           <div className="workspace-grid">
