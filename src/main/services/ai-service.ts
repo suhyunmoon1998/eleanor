@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { buildExtractionInstructions, ELEANOR_VOICE_INSTRUCTIONS } from "../../shared/prompting.js";
-import type { AppSettings } from "../../shared/contracts.js";
+import type { AppSettings, ExtractionResult } from "../../shared/contracts.js";
 import type { AppStore } from "./app-store.js";
 import type { ApiKeyStore } from "./secret-store.js";
 import type { SourceRepository } from "./source-repository.js";
@@ -11,7 +11,36 @@ const extractionSchema = z.object({
   spokenReply: z.string(),
   nextQuestion: z.string(),
   priorityReason: z.string(),
-  capturePatch: z.record(z.string(), z.unknown()).default({}),
+  capturePatch: z.array(
+    z.object({
+      operation: z.enum(["add", "replace", "remove"]),
+      entity: z.enum([
+        "trigger",
+        "rule",
+        "firm_procedure",
+        "strategic_rule",
+        "action",
+        "calendar_action",
+        "document_output",
+        "communication",
+        "oversight",
+        "completion",
+        "branch",
+        "lead",
+        "source",
+      ]),
+      entityId: z.string(),
+      field: z.string(),
+      value: z.string(),
+      status: z.enum([
+        "Confirmed by Jack",
+        "Provisional inference",
+        "Unknown / parked",
+        "Needs Firm Confirmation",
+        "Needs Legal Verification",
+      ]),
+    }),
+  ).default([]),
   missingCriticalFields: z.array(z.string()).default([]),
   atomicTriggerIds: z.array(z.string()).default([]),
   caseDevelopmentLeads: z.array(z.string()).default([]),
@@ -20,6 +49,20 @@ const extractionSchema = z.object({
   contradictions: z.array(z.string()).default([]),
   parkedItems: z.array(z.string()).default([]),
 });
+
+type RawExtractionResult = z.infer<typeof extractionSchema>;
+
+function normalizeExtractionResult(result: RawExtractionResult): ExtractionResult {
+  return {
+    ...result,
+    capturePatch: Object.fromEntries(
+      result.capturePatch.map((patch, index) => {
+        const key = [patch.entity, patch.entityId, patch.field].filter(Boolean).join(".") || `patch_${index}`;
+        return [key, patch];
+      }),
+    ),
+  };
+}
 
 type ExtractionPayload = {
   familyId: string;
@@ -208,7 +251,10 @@ export class AIService {
       },
     });
 
-    return response.output_parsed;
+    if (!response.output_parsed) {
+      throw new Error("OpenAI returned an empty structured extraction result.");
+    }
+    return normalizeExtractionResult(response.output_parsed);
   }
 
   private async runAnthropicExtraction(input: ExtractionPayload, settings: AppSettings) {
@@ -228,6 +274,7 @@ export class AIService {
       "Return only valid JSON with no markdown fence and no commentary.",
       "The JSON object must include exactly these keys:",
       "spokenReply, nextQuestion, priorityReason, capturePatch, missingCriticalFields, atomicTriggerIds, caseDevelopmentLeads, clientManagementLeads, clientDevelopmentLeads, contradictions, parkedItems.",
+      "capturePatch must be an array of patch objects. Each patch needs operation, entity, entityId, field, value, and status.",
       "spokenReply and nextQuestion should sound like Eleanor interviewing the user to capture operational knowledge for later K-Sync / CaseSync mapping.",
       `Voice instructions:\n${ELEANOR_VOICE_INSTRUCTIONS}`,
     ].join("\n\n");
@@ -243,7 +290,7 @@ export class AIService {
       max_tokens: 2400,
     }, settings.fallbackExtractionModel);
 
-    return extractionSchema.parse(JSON.parse(this.extractJsonText(body)));
+    return normalizeExtractionResult(extractionSchema.parse(JSON.parse(this.extractJsonText(body))));
   }
 
   private async getExtractionContext(familyId: string) {
