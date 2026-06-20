@@ -20,6 +20,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:server": "tsc -p tsconfig.server.json",
     "dist": "npm run build && electron-builder",
+    "start": "npm run start:web",
     "start:web": "node dist-server/server/index.js",
     "import:sources": "tsx scripts/import-sources.ts",
     "test": "vitest run",
