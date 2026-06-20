@@ -14,9 +14,25 @@ Open:
 
 - `http://127.0.0.1:3001`
 
-## Deploy
+## Deploy On Vercel
 
-Recommended target:
+Recommended free-first target:
+
+- Vercel
+
+Files already included:
+
+- [vercel.json](/Users/davidmun/Documents/Eleanor/vercel.json)
+
+Set this environment variable in Vercel:
+
+- `ELEANOR_API_KEY`
+
+Vercel uses serverless functions, so local session data is temporary until a database or Vercel Storage is connected.
+
+## Deploy On Render
+
+Recommended target when persistent local session storage matters:
 
 - Render Web Service
 
