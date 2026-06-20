@@ -2,6 +2,8 @@ type LiveRealtimeCallbacks = {
   onAssistantTranscript: (text: string) => void;
   onUserTranscriptDelta?: (text: string) => void;
   onUserTranscript: (text: string) => void;
+  onSpeechStart?: () => void;
+  onSpeechStop?: () => void;
   onStatus: (text: string) => void;
   onConnectionChange: (connected: boolean) => void;
   onError: (message: string) => void;
@@ -147,6 +149,16 @@ export class LiveRealtimeSession {
 
   private handleEvent(event: Record<string, unknown>) {
     const type = typeof event.type === "string" ? event.type : "";
+    if (type === "input_audio_buffer.speech_started") {
+      this.callbacks.onSpeechStart?.();
+      return;
+    }
+
+    if (type === "input_audio_buffer.speech_stopped") {
+      this.callbacks.onSpeechStop?.();
+      return;
+    }
+
     if (type === "response.output_audio_transcript.delta") {
       this.assistantText += typeof event.delta === "string" ? event.delta : "";
       return;

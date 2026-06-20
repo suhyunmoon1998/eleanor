@@ -396,6 +396,12 @@ export function App() {
           void processFinalAnswer(currentSession, text);
         }
       },
+      onSpeechStart: () => {
+        setLiveStatus("I can hear you...");
+      },
+      onSpeechStop: () => {
+        setLiveStatus("Transcribing...");
+      },
       onStatus: (text) => setLiveStatus(text),
       onConnectionChange: (connected) => setLiveConnected(connected),
       onError: (message) => setErrorMessage(message),

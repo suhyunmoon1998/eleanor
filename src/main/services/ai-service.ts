@@ -351,6 +351,9 @@ export class AIService {
         output_modalities: ["audio"],
         audio: {
           input: {
+            transcription: {
+              model: "gpt-realtime-whisper",
+            },
             turn_detection: {
               type: "semantic_vad",
               create_response: false,
