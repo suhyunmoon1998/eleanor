@@ -134,10 +134,10 @@ export function App() {
   useEffect(() => {
     if (liveConnected) return;
     if (provider === "anthropic") {
-      setLiveStatus("Claude mode is connected for structured interviewing, but live browser voice is not available in this build.");
+      setLiveStatus("Voice is available with OpenAI mode.");
       return;
     }
-    setLiveStatus("Live voice is available when Eleanor is running with a real OpenAI-backed server.");
+    setLiveStatus("Ready for voice.");
   }, [provider, liveConnected]);
 
   useEffect(() => {
@@ -233,11 +233,15 @@ export function App() {
     await refresh();
   }
 
-  async function handleCreateSession(familyId: string, title: string) {
+  async function handleCreateSession(familyId: string, title: string, startVoice = false) {
     const session = await bridge.createSession({ familyId, title });
     setActiveSession(session);
+    activeSessionRef.current = session;
     setLastExtraction(buildExtractionPreview(session));
     await refresh();
+    if (startVoice) {
+      await handleStartLiveVoice(session);
+    }
   }
 
   async function appendTranscriptEntry(sessionId: string, role: "assistant" | "user", text: string) {
@@ -288,25 +292,27 @@ export function App() {
     }
   }
 
-  async function handleStartLiveVoice() {
+  async function handleStartLiveVoice(sessionOverride?: SessionRecord) {
+    const session = sessionOverride ?? activeSession;
     if (!providerSupportsLiveVoice(provider)) {
-      setErrorMessage("Live browser voice is currently available only with the OpenAI provider. Claude mode still supports typed interviewing and structured extraction.");
+      setErrorMessage("Voice mode needs OpenAI.");
       return;
     }
     if (!liveRuntimeAvailable) {
-      setErrorMessage("Live voice requires either the desktop runtime or the web server mode with API routes.");
+      setErrorMessage("Voice mode needs the web app URL.");
       return;
     }
-    if (!activeSession) {
+    if (!session) {
       setErrorMessage("Start a family session before connecting live voice.");
       return;
     }
     if (liveSessionRef.current?.isConnected()) {
-      sendLiveFamilyPrompt(activeSession);
+      sendLiveFamilyPrompt(session);
       return;
     }
 
     setErrorMessage("");
+    setLiveStatus("Connecting microphone...");
     const liveSession = new LiveRealtimeSession({
       onAssistantTranscript: (text) => {
         const currentSession = activeSessionRef.current;
@@ -325,15 +331,16 @@ export function App() {
       onError: (message) => setErrorMessage(message),
     });
     liveSessionRef.current = liveSession;
+    activeSessionRef.current = session;
 
     try {
       await liveSession.connect({
         createRealtimeSession: (offerSdp) => bridge.createRealtimeSession(offerSdp),
         inputDeviceId: data.settings.selectedInputDeviceId,
       });
-      sendLiveFamilyPrompt(activeSession, true);
+      sendLiveFamilyPrompt(session, true);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to start live voice.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to start voice.");
     }
   }
 
@@ -605,7 +612,8 @@ export function App() {
               setActiveSession(null);
               setLastExtraction(null);
             }}
-            onCreateSession={handleCreateSession}
+            onCreateSession={(familyId, title) => handleCreateSession(familyId, title, false)}
+            onCreateVoiceSession={(familyId, title) => handleCreateSession(familyId, title, true)}
             onChangeNote={setNote}
             onRunExtraction={handleRunExtraction}
             onStartLiveVoice={handleStartLiveVoice}
@@ -734,6 +742,7 @@ function InterviewView(props: {
   provider: AiProvider;
   onBackToMap: () => void;
   onCreateSession: (familyId: string, title: string) => Promise<void>;
+  onCreateVoiceSession: (familyId: string, title: string) => Promise<void>;
   onChangeNote: (value: string) => void;
   onRunExtraction: () => Promise<void>;
   onStartLiveVoice: () => Promise<void>;
@@ -744,8 +753,8 @@ function InterviewView(props: {
       <section className="hero">
         <div>
           <p className="eyebrow">Interview</p>
-          <h2>Pick a family and start.</h2>
-          <p>Say what happened. Eleanor finds the next question.</p>
+          <h2>Pick a family and talk.</h2>
+          <p>Eleanor listens, captures, and asks the next question.</p>
         </div>
       </section>
 
@@ -759,9 +768,18 @@ function InterviewView(props: {
               </div>
               <h3>{family.title}</h3>
               <p>{family.interviewGoal}</p>
-              <button className="button" onClick={() => void props.onCreateSession(family.familyId, `${family.familyId} — ${family.title}`)}>
-                Start
-              </button>
+              <div className="family-actions">
+                <button
+                  className="button"
+                  onClick={() => void props.onCreateVoiceSession(family.familyId, `${family.familyId} — ${family.title}`)}
+                  disabled={!props.liveAvailable}
+                >
+                  Start Voice
+                </button>
+                <button className="button button-secondary" onClick={() => void props.onCreateSession(family.familyId, `${family.familyId} — ${family.title}`)}>
+                  Type
+                </button>
+              </div>
             </article>
           ))}
         </section>
@@ -805,7 +823,7 @@ function InterviewView(props: {
                 className="textarea"
                 value={props.note}
                 onChange={(event) => props.onChangeNote(event.target.value)}
-                placeholder="Type or paste Jack's latest answer."
+                placeholder="Backup: type or paste Jack's latest answer."
               />
               <button className="button" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
                 {props.isExtracting ? "Working…" : "Next Question"}

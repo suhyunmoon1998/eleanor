@@ -262,6 +262,13 @@ textarea {
   gap: 12px;
 }
 
+.family-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .family-card p {
   display: -webkit-box;
   -webkit-line-clamp: 3;
