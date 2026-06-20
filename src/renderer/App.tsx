@@ -106,6 +106,8 @@ export function App() {
   const [lastExtraction, setLastExtraction] = useState<ExtractionResult | null>(null);
   const [liveStatus, setLiveStatus] = useState("Live interview status will appear here.");
   const [liveConnected, setLiveConnected] = useState(false);
+  const [liveTranscriptPreview, setLiveTranscriptPreview] = useState("");
+  const [micPaused, setMicPaused] = useState(false);
   const [inputDevices, setInputDevices] = useState<AudioDeviceOption[]>([]);
   const [outputDevices, setOutputDevices] = useState<AudioDeviceOption[]>([]);
   const [deviceSupport, setDeviceSupport] = useState("Device selection will appear when the browser or desktop runtime exposes media devices.");
@@ -238,6 +240,8 @@ export function App() {
     setActiveSession(session);
     activeSessionRef.current = session;
     setLastExtraction(buildExtractionPreview(session));
+    setNote("");
+    setLiveTranscriptPreview("");
     await refresh();
     if (startVoice) {
       await handleStartLiveVoice(session);
@@ -258,38 +262,17 @@ export function App() {
     return nextSession;
   }
 
-  async function processVoiceTranscript(session: SessionRecord, transcriptText: string) {
-    const updatedSession = await appendTranscriptEntry(session.id, "user", transcriptText);
-    const result = await bridge.runExtraction({
-      familyId: updatedSession.familyId,
-      transcript: transcriptText,
-      priorCapture: updatedSession.capture,
-      parkedItems: updatedSession.leads.filter((lead) => lead.kind === "parked").map((lead) => lead.text),
+  function appendDraftAnswer(transcriptText: string) {
+    const cleanText = transcriptText.trim();
+    if (!cleanText) return;
+    setNote((current) => {
+      const trimmed = current.trim();
+      if (!trimmed) return cleanText;
+      if (trimmed.includes(cleanText)) return current;
+      return `${trimmed}\n\n${cleanText}`;
     });
-
-    setLastExtraction(result);
-    const nextSession = await bridge.updateSession({
-      sessionId: updatedSession.id,
-      capturePatch: result.capturePatch,
-      contradictions: result.contradictions,
-      triggerIds: result.atomicTriggerIds,
-      currentQuestion: result.nextQuestion,
-      lastAssistantReply: result.spokenReply,
-      lastPriorityReason: result.priorityReason,
-      missingCriticalFields: result.missingCriticalFields,
-      leads: [
-        ...result.caseDevelopmentLeads.map((text) => ({ text, kind: "case-development" as const })),
-        ...result.clientManagementLeads.map((text) => ({ text, kind: "client-management" as const })),
-        ...result.clientDevelopmentLeads.map((text) => ({ text, kind: "client-development" as const })),
-        ...result.parkedItems.map((text) => ({ text, kind: "parked" as const })),
-      ],
-    });
-    setActiveSession(nextSession);
-    setLastExtraction(buildExtractionPreview(nextSession));
-    await refresh();
-    if (liveSessionRef.current?.isConnected()) {
-      sendStructuredLiveReply(nextSession, result);
-    }
+    setLiveTranscriptPreview("");
+    setLiveStatus("Transcript captured. Review or edit it, then click Next.");
   }
 
   async function handleStartLiveVoice(sessionOverride?: SessionRecord) {
@@ -320,11 +303,12 @@ export function App() {
           void appendTranscriptEntry(currentSession.id, "assistant", text);
         }
       },
+      onUserTranscriptDelta: (text) => {
+        setLiveTranscriptPreview(text);
+        setLiveStatus("Listening. Eleanor will wait until you click Next.");
+      },
       onUserTranscript: (text) => {
-        const currentSession = activeSessionRef.current;
-        if (currentSession) {
-          void processVoiceTranscript(currentSession, text);
-        }
+        appendDraftAnswer(text);
       },
       onStatus: (text) => setLiveStatus(text),
       onConnectionChange: (connected) => setLiveConnected(connected),
@@ -338,6 +322,7 @@ export function App() {
         createRealtimeSession: (offerSdp) => bridge.createRealtimeSession(offerSdp),
         inputDeviceId: data.settings.selectedInputDeviceId,
       });
+      setMicPaused(false);
       sendLiveFamilyPrompt(session, true);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to start voice.");
@@ -348,6 +333,25 @@ export function App() {
     liveSessionRef.current?.disconnect();
     liveSessionRef.current = null;
     setLiveConnected(false);
+    setLiveTranscriptPreview("");
+    setMicPaused(false);
+  }
+
+  function handlePauseCapture() {
+    liveSessionRef.current?.setMicrophoneEnabled(false);
+    setMicPaused(true);
+  }
+
+  function handleResumeCapture() {
+    liveSessionRef.current?.setMicrophoneEnabled(true);
+    setMicPaused(false);
+  }
+
+  function handleToggleMute() {
+    if (!liveSessionRef.current?.isConnected()) return;
+    const shouldEnable = !micPaused;
+    liveSessionRef.current.setMicrophoneEnabled(!shouldEnable);
+    setMicPaused(shouldEnable);
   }
 
   function sendLiveFamilyPrompt(session: SessionRecord, isOpening = false) {
@@ -408,6 +412,9 @@ export function App() {
   async function handleRunExtraction() {
     if (!activeSession || !note.trim()) return;
     setIsExtracting(true);
+    liveSessionRef.current?.setMicrophoneEnabled(false);
+    setMicPaused(true);
+    setLiveStatus("Analyzing your answer…");
     try {
       const transcriptEntry = {
         id: crypto.randomUUID(),
@@ -424,6 +431,7 @@ export function App() {
 
       const result = await bridge.runExtraction({
         familyId: updatedSession.familyId,
+        currentQuestion: updatedSession.currentQuestion,
         transcript: transcriptEntry.text,
         priorCapture: updatedSession.capture,
         parkedItems: updatedSession.leads.filter((lead) => lead.kind === "parked").map((lead) => lead.text),
@@ -434,7 +442,7 @@ export function App() {
       const assistantEntry = {
         id: crypto.randomUUID(),
         role: "assistant" as const,
-        text: result.spokenReply,
+        text: [result.spokenReply, result.nextQuestion].filter(Boolean).join("\n\n"),
         createdAt: new Date().toISOString(),
       };
 
@@ -459,6 +467,11 @@ export function App() {
       await refresh();
       if (liveConnected && liveSessionRef.current?.isConnected()) {
         sendStructuredLiveReply(nextSession, result);
+        liveSessionRef.current.setMicrophoneEnabled(true);
+        setMicPaused(false);
+        setLiveStatus("Saved. Eleanor is asking the next question.");
+      } else {
+        setLiveStatus("Saved. Next question is ready.");
       }
     } finally {
       setIsExtracting(false);
@@ -590,6 +603,8 @@ export function App() {
             liveStatus={liveStatus}
             liveConnected={liveConnected}
             liveAvailable={liveRuntimeAvailable}
+            liveTranscriptPreview={liveTranscriptPreview}
+            micPaused={micPaused}
             provider={data.settings.provider}
             onBackToMap={() => {
               handleStopLiveVoice();
@@ -602,6 +617,9 @@ export function App() {
             onRunExtraction={handleRunExtraction}
             onStartLiveVoice={handleStartLiveVoice}
             onStopLiveVoice={handleStopLiveVoice}
+            onPauseCapture={handlePauseCapture}
+            onResumeCapture={handleResumeCapture}
+            onToggleMute={handleToggleMute}
           />
         ) : null}
       </main>
@@ -723,6 +741,8 @@ function InterviewView(props: {
   liveStatus: string;
   liveConnected: boolean;
   liveAvailable: boolean;
+  liveTranscriptPreview: string;
+  micPaused: boolean;
   provider: AiProvider;
   onBackToMap: () => void;
   onCreateSession: (familyId: string, title: string) => Promise<void>;
@@ -731,9 +751,13 @@ function InterviewView(props: {
   onRunExtraction: () => Promise<void>;
   onStartLiveVoice: () => Promise<void>;
   onStopLiveVoice: () => void;
+  onPauseCapture: () => void;
+  onResumeCapture: () => void;
+  onToggleMute: () => void;
 }) {
   const startingFamily = props.data.families[0];
   const startingTitle = startingFamily ? `${startingFamily.familyId} — ${startingFamily.title}` : "Eleanor Interview";
+  const answerDraftRef = useRef<HTMLTextAreaElement | null>(null);
 
   return (
     <>
@@ -798,12 +822,29 @@ function InterviewView(props: {
                 </div>
                 <div className="live-actions">
                   <button className="button" onClick={() => void props.onStartLiveVoice()} disabled={!props.liveAvailable}>
-                    {props.provider === "openai" ? (props.liveConnected ? "Ask Next" : "Start Voice") : "Voice Off"}
+                    {props.provider === "openai" ? (props.liveConnected ? "Repeat Question" : "Start Voice") : "Voice Off"}
+                  </button>
+                  <button className="button button-secondary" onClick={props.onPauseCapture} disabled={!props.liveConnected || props.micPaused}>
+                    Pause
+                  </button>
+                  <button className="button button-secondary" onClick={props.onResumeCapture} disabled={!props.liveConnected || !props.micPaused}>
+                    Resume
+                  </button>
+                  <button className="button button-secondary" onClick={props.onToggleMute} disabled={!props.liveConnected}>
+                    {props.micPaused ? "Unmute" : "Mute"}
                   </button>
                   <button className="button button-secondary" onClick={props.onStopLiveVoice} disabled={!props.liveConnected}>
                     Stop
                   </button>
                 </div>
+              </div>
+              <div className="turn-state">
+                <span>AI question</span>
+                <p>{props.activeSession.currentQuestion || "Eleanor will ask the opening question aloud."}</p>
+              </div>
+              <div className="turn-state turn-state-live">
+                <span>Interim live transcription</span>
+                <p>{props.liveTranscriptPreview || "Speak naturally. Nothing is finalized until you click Next."}</p>
               </div>
               <div className="transcript">
                 {props.activeSession.transcript.length === 0 ? <p className="hint">No turns yet.</p> : null}
@@ -814,15 +855,43 @@ function InterviewView(props: {
                   </div>
                 ))}
               </div>
+              <div className="turn-state">
+                <span>Finalized answer draft</span>
+                <p>Edit this text before clicking Next. Next is the only control that sends the answer for analysis.</p>
+              </div>
               <textarea
+                ref={answerDraftRef}
                 className="textarea"
                 value={props.note}
                 onChange={(event) => props.onChangeNote(event.target.value)}
-                placeholder="Backup: type or paste Jack's latest answer."
+                placeholder="Finalized answer draft. You can edit this before clicking Next."
               />
-              <button className="button" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
-                {props.isExtracting ? "Working…" : "Next Question"}
-              </button>
+              <div className="turn-actions">
+                <button className="button button-large" onClick={() => void props.onRunExtraction()} disabled={props.isExtracting || !props.note.trim() || !props.data.hasApiKey}>
+                  {props.isExtracting ? "Analyzing your answer…" : "Next"}
+                </button>
+                <button className="button button-secondary" onClick={() => answerDraftRef.current?.focus()} disabled={props.isExtracting}>
+                  Edit Transcript
+                </button>
+                <button className="button button-secondary" disabled={props.isExtracting}>
+                  Skip / Park
+                </button>
+                <button className="button button-secondary" disabled={props.isExtracting}>
+                  Go Back
+                </button>
+                <button className="button button-secondary" disabled={!props.lastExtraction}>
+                  Show Current Entry
+                </button>
+                <button className="button button-secondary" disabled={!props.lastExtraction}>
+                  What Is Missing?
+                </button>
+                <button className="button button-secondary" disabled={props.isExtracting}>
+                  Commit Current Family
+                </button>
+                <button className="button button-danger" onClick={props.onBackToMap} disabled={props.isExtracting}>
+                  Finish Interview
+                </button>
+              </div>
             </section>
 
             <section className="card tall">

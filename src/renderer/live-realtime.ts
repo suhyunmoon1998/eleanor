@@ -1,5 +1,6 @@
 type LiveRealtimeCallbacks = {
   onAssistantTranscript: (text: string) => void;
+  onUserTranscriptDelta?: (text: string) => void;
   onUserTranscript: (text: string) => void;
   onStatus: (text: string) => void;
   onConnectionChange: (connected: boolean) => void;
@@ -17,6 +18,7 @@ export class LiveRealtimeSession {
   private stream: MediaStream | null = null;
   private remoteAudio: HTMLAudioElement | null = null;
   private assistantText = "";
+  private userText = "";
   private connected = false;
 
   constructor(private readonly callbacks: LiveRealtimeCallbacks) {}
@@ -98,6 +100,7 @@ export class LiveRealtimeSession {
       this.stream = null;
       this.remoteAudio = null;
       this.assistantText = "";
+      this.userText = "";
       this.connected = false;
       this.callbacks.onConnectionChange(false);
       this.callbacks.onStatus("Live connection closed.");
@@ -127,6 +130,17 @@ export class LiveRealtimeSession {
     this.sendText(instructions, true);
   }
 
+  setMicrophoneEnabled(enabled: boolean) {
+    this.stream?.getAudioTracks().forEach((track) => {
+      track.enabled = enabled;
+    });
+    this.callbacks.onStatus(enabled ? "Microphone resumed. Continue speaking." : "Microphone paused.");
+  }
+
+  isMicrophoneEnabled() {
+    return this.stream?.getAudioTracks().some((track) => track.enabled) ?? false;
+  }
+
   isConnected() {
     return this.connected;
   }
@@ -151,13 +165,29 @@ export class LiveRealtimeSession {
     }
 
     if (
+      type === "conversation.item.input_audio_transcription.delta" ||
+      /input_audio_transcription\.delta/.test(type)
+    ) {
+      const delta = typeof event.delta === "string" ? event.delta : "";
+      if (delta) {
+        this.userText += delta;
+        this.callbacks.onUserTranscriptDelta?.(this.userText.trim());
+      }
+      return;
+    }
+
+    if (
       type === "conversation.item.input_audio_transcription.completed" ||
       /input_audio_transcription\.completed/.test(type)
     ) {
-      const transcript = typeof event.transcript === "string" ? event.transcript.trim() : "";
+      const transcript =
+        typeof event.transcript === "string" && event.transcript.trim()
+          ? event.transcript.trim()
+          : this.userText.trim();
       if (transcript) {
         this.callbacks.onUserTranscript(transcript);
       }
+      this.userText = "";
       return;
     }
 

@@ -24,6 +24,7 @@ const extractionSchema = z.object({
 type ExtractionPayload = {
   familyId: string;
   transcript: string;
+  currentQuestion?: string;
   priorCapture?: Record<string, unknown>;
   openLoops?: string[];
   parkedItems?: string[];
@@ -189,6 +190,7 @@ export class AIService {
                 {
                   family,
                   familyAtlas,
+                  currentQuestion: input.currentQuestion ?? "",
                   transcript: input.transcript,
                   priorCapture: input.priorCapture ?? {},
                   openLoops: input.openLoops ?? [],
@@ -214,6 +216,7 @@ export class AIService {
     const requestPayload = {
       family,
       familyAtlas,
+      currentQuestion: input.currentQuestion ?? "",
       transcript: input.transcript,
       priorCapture: input.priorCapture ?? {},
       openLoops: input.openLoops ?? [],
@@ -351,7 +354,7 @@ export class AIService {
             turn_detection: {
               type: "semantic_vad",
               create_response: false,
-              interrupt_response: true,
+              interrupt_response: false,
             },
           },
           output: {
