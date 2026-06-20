@@ -89,6 +89,16 @@ function buildExtractionPreview(session: SessionRecord | null): ExtractionResult
   };
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timeoutId));
+  });
+}
+
 export function App() {
   const bridge = getBridge();
   const nativeBridge = hasNativeBridge();
@@ -297,21 +307,28 @@ export function App() {
         text: cleanAnswer,
         createdAt: new Date().toISOString(),
       };
-      const updatedSession = await bridge.updateSession({
-        sessionId: session.id,
-        transcriptEntry,
-      });
+      const lastTurn = session.transcript.at(-1);
+      const updatedSession =
+        lastTurn?.role === "user" && lastTurn.text.trim() === cleanAnswer
+          ? session
+          : await bridge.updateSession({
+              sessionId: session.id,
+              transcriptEntry,
+            });
       setActiveSession(updatedSession);
       activeSessionRef.current = updatedSession;
-      setNote("");
 
-      const result = await bridge.runExtraction({
-        familyId: updatedSession.familyId,
-        currentQuestion: updatedSession.currentQuestion,
-        transcript: transcriptEntry.text,
-        priorCapture: updatedSession.capture,
-        parkedItems: updatedSession.leads.filter((lead) => lead.kind === "parked").map((lead) => lead.text),
-      });
+      const result = await withTimeout(
+        bridge.runExtraction({
+          familyId: updatedSession.familyId,
+          currentQuestion: updatedSession.currentQuestion,
+          transcript: transcriptEntry.text,
+          priorCapture: updatedSession.capture,
+          parkedItems: updatedSession.leads.filter((lead) => lead.kind === "parked").map((lead) => lead.text),
+        }),
+        45_000,
+        "Eleanor took too long to analyze that answer.",
+      );
 
       setLastExtraction(result);
 
@@ -341,6 +358,7 @@ export function App() {
       });
       setActiveSession(nextSession);
       activeSessionRef.current = nextSession;
+      setNote("");
       await refresh();
 
       if (liveSessionRef.current?.isConnected()) {
@@ -350,6 +368,16 @@ export function App() {
         setLiveStatus("Listening...");
       } else {
         setLiveStatus("Next question is ready.");
+      }
+    } catch (error) {
+      setNote(cleanAnswer);
+      setErrorMessage(error instanceof Error ? error.message : "Eleanor could not analyze that answer.");
+      if (liveSessionRef.current?.isConnected()) {
+        liveSessionRef.current.setMicrophoneEnabled(true);
+        setMicPaused(false);
+        setLiveStatus("I had trouble thinking through that. You can keep talking or press Send now to retry.");
+      } else {
+        setLiveStatus("Analysis failed. You can press Send now to retry.");
       }
     } finally {
       isExtractingRef.current = false;
