@@ -21,6 +21,15 @@ type AudioDeviceOption = {
   label: string;
 };
 
+type CompletedReport = {
+  session: SessionRecord;
+  endedAt: string;
+  summary: string;
+  keyPoints: string[];
+  openQuestions: string[];
+  unsavedDraft?: string;
+};
+
 const providerOptions: Array<{ value: AiProvider; label: string }> = [
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Claude" },
@@ -99,6 +108,39 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
+function shortText(text: string, maxLength = 180) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 1).trim()}...`;
+}
+
+function buildCompletedReport(session: SessionRecord, lastExtraction: ExtractionResult | null, unsavedDraft: string): CompletedReport {
+  const userTurns = session.transcript.filter((entry) => entry.role === "user");
+  const assistantTurns = session.transcript.filter((entry) => entry.role === "assistant");
+  const latestUserTurns = userTurns.slice(-5).map((entry) => shortText(entry.text));
+  const openQuestions = [
+    session.currentQuestion,
+    ...(lastExtraction?.missingCriticalFields ?? session.missingCriticalFields),
+  ].filter((item): item is string => Boolean(item?.trim()));
+
+  const summaryParts = [
+    userTurns.length > 0
+      ? `Captured ${userTurns.length} user answer${userTurns.length === 1 ? "" : "s"} and ${assistantTurns.length} Eleanor turn${assistantTurns.length === 1 ? "" : "s"} for ${session.familyId}.`
+      : `Started ${session.familyId}, but no user answers were finalized yet.`,
+    latestUserTurns.length > 0 ? `Most recent substance: ${latestUserTurns.join(" / ")}` : "",
+    openQuestions.length > 0 ? `Still needs follow-up on: ${openQuestions.slice(0, 3).join("; ")}.` : "No open follow-up was saved.",
+  ].filter(Boolean);
+
+  return {
+    session,
+    endedAt: new Date().toISOString(),
+    summary: summaryParts.join(" "),
+    keyPoints: latestUserTurns.length > 0 ? latestUserTurns : ["No finalized user answers yet."],
+    openQuestions: openQuestions.length > 0 ? openQuestions : ["No saved open question."],
+    unsavedDraft: unsavedDraft.trim() || undefined,
+  };
+}
+
 export function App() {
   const bridge = getBridge();
   const nativeBridge = hasNativeBridge();
@@ -115,6 +157,7 @@ export function App() {
   const [note, setNote] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [lastExtraction, setLastExtraction] = useState<ExtractionResult | null>(null);
+  const [completedReport, setCompletedReport] = useState<CompletedReport | null>(null);
   const [liveStatus, setLiveStatus] = useState("Live interview status will appear here.");
   const [liveConnected, setLiveConnected] = useState(false);
   const [liveTranscriptPreview, setLiveTranscriptPreview] = useState("");
@@ -252,6 +295,7 @@ export function App() {
 
   async function handleCreateSession(familyId: string, title: string, startVoice = false) {
     const session = await bridge.createSession({ familyId, title });
+    setCompletedReport(null);
     setActiveSession(session);
     activeSessionRef.current = session;
     setLastExtraction(buildExtractionPreview(session));
@@ -457,6 +501,27 @@ export function App() {
     setMicPaused(false);
   }
 
+  function handleFinishInterview() {
+    const session = activeSessionRef.current ?? activeSession;
+    if (!session) return;
+    handleStopLiveVoice();
+    setCompletedReport(buildCompletedReport(session, lastExtraction, note));
+    setActiveSession(null);
+    setLastExtraction(null);
+    setLiveTranscriptPreview("");
+    setNote("");
+    setViewMode("map");
+  }
+
+  function handleStartOver() {
+    setCompletedReport(null);
+    setActiveSession(null);
+    setLastExtraction(null);
+    setLiveTranscriptPreview("");
+    setNote("");
+    setViewMode(loadState.status === "ready" && loadState.data.hasApiKey ? "map" : "setup");
+  }
+
   function handlePauseCapture() {
     liveSessionRef.current?.setMicrophoneEnabled(false);
     setMicPaused(true);
@@ -546,7 +611,7 @@ export function App() {
   const { data } = loadState;
 
   return (
-    <div className={`shell ${activeSession ? "shell-focus" : ""}`}>
+    <div className={`shell ${activeSession || completedReport ? "shell-focus" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
           <p className="eyebrow">Jack Law</p>
@@ -601,6 +666,7 @@ export function App() {
                 key={session.id}
                 className="list-button"
                 onClick={() => {
+                  setCompletedReport(null);
                   setActiveSession(session);
                   setLastExtraction(buildExtractionPreview(session));
                   setViewMode("map");
@@ -654,6 +720,7 @@ export function App() {
           <InterviewView
             data={data}
             activeSession={activeSession}
+            completedReport={completedReport}
             note={note}
             isExtracting={isExtracting}
             lastExtraction={lastExtraction}
@@ -663,11 +730,8 @@ export function App() {
             liveTranscriptPreview={liveTranscriptPreview}
             micPaused={micPaused}
             provider={data.settings.provider}
-            onBackToMap={() => {
-              handleStopLiveVoice();
-              setActiveSession(null);
-              setLastExtraction(null);
-            }}
+            onFinishInterview={handleFinishInterview}
+            onStartOver={handleStartOver}
             onCreateSession={(familyId, title) => handleCreateSession(familyId, title, false)}
             onCreateVoiceSession={(familyId, title) => handleCreateSession(familyId, title, true)}
             onChangeNote={setNote}
@@ -792,6 +856,7 @@ function SettingsView(props: {
 function InterviewView(props: {
   data: BootstrapState;
   activeSession: SessionRecord | null;
+  completedReport: CompletedReport | null;
   note: string;
   isExtracting: boolean;
   lastExtraction: ExtractionResult | null;
@@ -801,7 +866,8 @@ function InterviewView(props: {
   liveTranscriptPreview: string;
   micPaused: boolean;
   provider: AiProvider;
-  onBackToMap: () => void;
+  onFinishInterview: () => void;
+  onStartOver: () => void;
   onCreateSession: (familyId: string, title: string) => Promise<void>;
   onCreateVoiceSession: (familyId: string, title: string) => Promise<void>;
   onChangeNote: (value: string) => void;
@@ -815,6 +881,64 @@ function InterviewView(props: {
   const startingFamily = props.data.families[0];
   const startingTitle = startingFamily ? `${startingFamily.familyId} — ${startingFamily.title}` : "Eleanor Interview";
   const answerDraftRef = useRef<HTMLTextAreaElement | null>(null);
+
+  if (props.completedReport && !props.activeSession) {
+    return (
+      <section className="summary-screen">
+        <article className="summary-hero">
+          <p className="eyebrow">Interview Complete</p>
+          <h2>Summary</h2>
+          <p>{props.completedReport.summary}</p>
+          <div className="summary-actions">
+            <button className="button" onClick={props.onStartOver}>Start New Interview</button>
+            <button
+              className="button button-secondary"
+              onClick={() => void navigator.clipboard?.writeText(props.completedReport?.summary ?? "")}
+            >
+              Copy Summary
+            </button>
+          </div>
+        </article>
+
+        <section className="summary-grid">
+          <article className="answer-card">
+            <p className="section-title">Key Points</p>
+            <ul className="summary-list">
+              {props.completedReport.keyPoints.map((point, index) => (
+                <li key={`${point}-${index}`}>{point}</li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="answer-card">
+            <p className="section-title">Open Follow-Ups</p>
+            <ul className="summary-list">
+              {props.completedReport.openQuestions.map((question, index) => (
+                <li key={`${question}-${index}`}>{question}</li>
+              ))}
+            </ul>
+          </article>
+        </section>
+
+        {props.completedReport.unsavedDraft ? (
+          <article className="answer-card">
+            <p className="section-title">Unsaved Draft</p>
+            <p>{props.completedReport.unsavedDraft}</p>
+          </article>
+        ) : null}
+
+        <article className="history-card">
+          <div className="answer-card-header">
+            <div>
+              <p className="eyebrow">Conversation History</p>
+              <h3>{props.completedReport.session.transcript.length} saved turns</h3>
+            </div>
+          </div>
+          <ConversationHistory session={props.completedReport.session} emptyText="No conversation turns were saved." />
+        </article>
+      </section>
+    );
+  }
 
   return (
     <>
@@ -876,7 +1000,7 @@ function InterviewView(props: {
               <button className="quiet-button" onClick={props.onToggleMute} disabled={!props.liveConnected}>
                 {props.micPaused ? "Unmute" : "Mute"}
               </button>
-              <button className="quiet-button" onClick={props.onBackToMap}>Finish</button>
+              <button className="quiet-button" onClick={props.onFinishInterview}>Finish</button>
             </div>
           </div>
 
@@ -929,6 +1053,16 @@ function InterviewView(props: {
               </div>
             </article>
 
+            <article className="history-card">
+              <div className="answer-card-header">
+                <div>
+                  <p className="eyebrow">Conversation History</p>
+                  <h3>{props.activeSession.transcript.length === 0 ? "No saved turns yet." : `${props.activeSession.transcript.length} saved turns`}</h3>
+                </div>
+              </div>
+              <ConversationHistory session={props.activeSession} emptyText="The conversation will appear here as Eleanor and Jack speak." />
+            </article>
+
             <details className="quiet-panel">
               <summary>More controls and notes</summary>
               <div className="quiet-panel-grid">
@@ -953,24 +1087,31 @@ function InterviewView(props: {
                 <button className="button button-secondary" disabled={props.isExtracting}>
                   Commit Current Family
                 </button>
-                <button className="button button-danger" onClick={props.onBackToMap} disabled={props.isExtracting}>
+                <button className="button button-danger" onClick={props.onFinishInterview} disabled={props.isExtracting}>
                   Finish Interview
                 </button>
-              </div>
-
-              <div className="transcript compact-transcript">
-                {props.activeSession.transcript.length === 0 ? <p className="hint">No transcript turns yet.</p> : null}
-                {props.activeSession.transcript.map((entry) => (
-                  <div key={entry.id} className={`bubble bubble-${entry.role}`}>
-                    <span>{entry.role}</span>
-                    <p>{entry.text}</p>
-                  </div>
-                ))}
               </div>
             </details>
           </section>
         </section>
       )}
     </>
+  );
+}
+
+function ConversationHistory(props: { session: SessionRecord; emptyText: string }) {
+  if (props.session.transcript.length === 0) {
+    return <p className="hint">{props.emptyText}</p>;
+  }
+
+  return (
+    <div className="transcript history-list">
+      {props.session.transcript.map((entry, index) => (
+        <div key={entry.id} className={`bubble bubble-${entry.role}`}>
+          <span>{index + 1}. {entry.role}</span>
+          <p>{entry.text}</p>
+        </div>
+      ))}
+    </div>
   );
 }

@@ -505,6 +505,16 @@ textarea {
   padding: 24px;
 }
 
+.history-card {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  background: rgba(255, 249, 239, 0.68);
+  box-shadow: var(--shadow);
+}
+
 .answer-card-header,
 .next-row {
   display: flex;
@@ -571,6 +581,64 @@ textarea {
 .compact-transcript {
   margin-top: 16px;
   max-height: 260px;
+}
+
+.history-list {
+  max-height: 360px;
+}
+
+.summary-screen {
+  display: grid;
+  gap: 18px;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.summary-hero {
+  padding: clamp(30px, 5vw, 58px);
+  border: 1px solid var(--border);
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at top right, rgba(19, 75, 66, 0.12), transparent 34%),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.summary-hero h2 {
+  margin: 0 0 14px;
+  font-size: clamp(2.4rem, 6vw, 5rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.summary-hero p {
+  max-width: 70ch;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.55;
+}
+
+.summary-actions,
+.summary-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.summary-grid {
+  align-items: stretch;
+}
+
+.summary-grid > * {
+  flex: 1 1 320px;
+}
+
+.summary-list {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .tall {
