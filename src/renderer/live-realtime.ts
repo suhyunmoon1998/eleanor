@@ -33,11 +33,17 @@ export class LiveRealtimeSession {
 
       const pc = new RTCPeerConnection();
       this.pc = pc;
-      this.remoteAudio = new Audio();
+      this.remoteAudio = document.createElement("audio");
       this.remoteAudio.autoplay = true;
+      this.remoteAudio.setAttribute("playsinline", "true");
+      this.remoteAudio.style.display = "none";
+      document.body.appendChild(this.remoteAudio);
       pc.ontrack = (event) => {
         if (this.remoteAudio) {
           this.remoteAudio.srcObject = event.streams[0] ?? null;
+          void this.remoteAudio.play().catch(() => {
+            this.callbacks.onError("Browser blocked Eleanor's audio. Click Start Voice again, then allow audio playback.");
+          });
         }
       };
 
@@ -100,6 +106,7 @@ export class LiveRealtimeSession {
       this.pc = null;
       this.dc = null;
       this.stream = null;
+      this.remoteAudio?.remove();
       this.remoteAudio = null;
       this.assistantText = "";
       this.userText = "";
@@ -129,7 +136,19 @@ export class LiveRealtimeSession {
   }
 
   requestAssistantReply(instructions: string) {
-    this.sendText(instructions, true);
+    if (!this.connected || this.dc?.readyState !== "open") {
+      throw new Error("The live session is not connected.");
+    }
+    this.callbacks.onStatus("Eleanor is answering...");
+    this.dc.send(
+      JSON.stringify({
+        type: "response.create",
+        response: {
+          output_modalities: ["audio"],
+          instructions,
+        },
+      }),
+    );
   }
 
   setMicrophoneEnabled(enabled: boolean) {
@@ -156,6 +175,21 @@ export class LiveRealtimeSession {
 
     if (type === "input_audio_buffer.speech_stopped") {
       this.callbacks.onSpeechStop?.();
+      return;
+    }
+
+    if (type === "response.created") {
+      this.callbacks.onStatus("Eleanor is answering...");
+      return;
+    }
+
+    if (type === "response.output_audio.delta") {
+      this.callbacks.onStatus("Eleanor is speaking...");
+      return;
+    }
+
+    if (type === "response.output_audio.done" || type === "response.done") {
+      this.callbacks.onStatus("Listening...");
       return;
     }
 
