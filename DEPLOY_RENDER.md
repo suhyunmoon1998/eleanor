@@ -8,9 +8,8 @@ This app stores:
 
 - interview sessions
 - local app settings
-- the server-side API key if you save it in the UI
 
-Because of that, Render should use a paid instance with a persistent disk. Render's docs say persistent disks are available on paid web services, and free web services lose local files on redeploy or restart:
+Because of that, Render should use a paid instance with a persistent disk if session history must survive redeploys. Render's docs say persistent disks are available on paid web services, and free web services lose local files on redeploy or restart:
 
 - [Blueprint YAML Reference](https://render.com/docs/blueprint-spec)
 - [Persistent Disks](https://render.com/docs/disks)
@@ -42,8 +41,8 @@ Optional:
 ## Important Notes
 
 - `starter` is used in [render.yaml](/Users/davidmun/Documents/Eleanor/render.yaml) so the app can keep its local session data on a disk.
-- If you switch the service to `free`, Render will not preserve local files. That means saved sessions and saved keys can disappear after restart or redeploy.
-- The app now also supports reading the API key from `ELEANOR_API_KEY`, so Jack does not need to paste the key into the UI after deployment.
+- If you switch the service to `free`, Render will not preserve local files. That means saved sessions can disappear after restart or redeploy.
+- Eleanor reads the API key from `ELEANOR_API_KEY`, so Jack does not need to paste the key into the app.
 
 ## Manual Render Setup
 

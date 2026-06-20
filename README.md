@@ -48,6 +48,8 @@ Set this in your host:
 
 - `ELEANOR_API_KEY`
 
+Jack should not enter the API key inside the app. The deployed server reads it from the hosting environment.
+
 ## Notes
 
 - Default provider is `OpenAI`

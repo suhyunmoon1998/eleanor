@@ -53,10 +53,6 @@ function providerLabel(provider: AiProvider) {
   return provider === "anthropic" ? "Claude" : "OpenAI";
 }
 
-function apiKeyPlaceholder(provider: AiProvider) {
-  return provider === "anthropic" ? "Paste Claude API key" : "Paste OpenAI API key";
-}
-
 function applyProviderPreset(settings: AppSettings, provider: AiProvider): AppSettings {
   return {
     ...settings,
@@ -101,14 +97,12 @@ export function App() {
   const bootstrapRef = useRef<BootstrapState | null>(null);
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [viewMode, setViewMode] = useState<ViewMode>("setup");
-  const [apiKey, setApiKey] = useState("");
   const [connectionMessage, setConnectionMessage] = useState("");
   const [settingsMessage, setSettingsMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [activeSession, setActiveSession] = useState<SessionRecord | null>(null);
   const [note, setNote] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
-  const [isSavingKey, setIsSavingKey] = useState(false);
   const [lastExtraction, setLastExtraction] = useState<ExtractionResult | null>(null);
   const [liveStatus, setLiveStatus] = useState("Live interview status will appear here.");
   const [liveConnected, setLiveConnected] = useState(false);
@@ -199,23 +193,6 @@ export function App() {
 
   const settings = loadState.status === "ready" ? loadState.data.settings : null;
 
-  async function handleSaveApiKey() {
-    if (!apiKey.trim()) return;
-    setIsSavingKey(true);
-    setErrorMessage("");
-    try {
-      const result = await bridge.saveApiKey(apiKey.trim());
-      setApiKey("");
-      setConnectionMessage(result.message);
-      await refresh();
-      setViewMode("map");
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to save the API key.");
-    } finally {
-      setIsSavingKey(false);
-    }
-  }
-
   async function handleTestConnection() {
     try {
       const result = await bridge.testConnection();
@@ -253,13 +230,6 @@ export function App() {
     setLastExtraction(null);
     setConnectionMessage("");
     setSettingsMessage("Local data and saved credentials were deleted.");
-    await refresh();
-  }
-
-  async function handleDeleteApiKey() {
-    await bridge.deleteApiKey();
-    setActiveSession(null);
-    setLastExtraction(null);
     await refresh();
   }
 
@@ -540,7 +510,7 @@ export function App() {
             <p className="hint">
               {data.hasApiKey
                 ? `${providerLabel(data.settings.provider)} connected`
-                : "API key needed"}
+                : "Render API key needed"}
             </p>
             {connectionMessage ? <p className="hint success">{connectionMessage}</p> : null}
             {settingsMessage ? <p className="hint success">{settingsMessage}</p> : null}
@@ -577,8 +547,8 @@ export function App() {
           <section className="setup-screen">
             <div className="hero setup-hero">
               <p className="eyebrow">Start</p>
-              <h2>Connect and begin.</h2>
-              <p>Choose your AI, paste the key, and start the interview.</p>
+              <h2>Server key needed.</h2>
+              <p>Add `ELEANOR_API_KEY` in Render, then redeploy.</p>
             </div>
 
             <article className="card tall compact-card">
@@ -593,15 +563,11 @@ export function App() {
                   </button>
                 ))}
               </div>
-              <input
-                className="input"
-                type="password"
-                placeholder={apiKeyPlaceholder(data.settings.provider)}
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-              />
-              <button className="button" onClick={() => void handleSaveApiKey()} disabled={!apiKey.trim() || isSavingKey}>
-                {isSavingKey ? "Checking…" : "Connect"}
+              <p className="hint">
+                Waiting for Render environment variable: ELEANOR_API_KEY
+              </p>
+              <button className="button" onClick={() => void refresh()}>
+                Check Again
               </button>
               <p className="hint">
                 Model: {settings?.extractionModel}{data.settings.provider === "openai" ? ` + ${settings?.realtimeModel}` : ""}
@@ -618,7 +584,6 @@ export function App() {
             deviceSupport={deviceSupport}
             onSave={handleSaveSettings}
             onTestConnection={handleTestConnection}
-            onDeleteApiKey={handleDeleteApiKey}
             onExportData={handleExportData}
             onDeleteLocalData={handleDeleteLocalData}
             hasApiKey={data.hasApiKey}
@@ -660,7 +625,6 @@ function SettingsView(props: {
   hasApiKey: boolean;
   onSave: (settings: AppSettings) => Promise<void>;
   onTestConnection: () => Promise<void>;
-  onDeleteApiKey: () => Promise<void>;
   onExportData: () => Promise<void>;
   onDeleteLocalData: () => Promise<void>;
 }) {
@@ -745,9 +709,6 @@ function SettingsView(props: {
           <p className="section-title">Tools</p>
           <button className="button button-secondary" onClick={() => void props.onTestConnection()} disabled={!props.hasApiKey}>
             Test
-          </button>
-          <button className="button button-secondary" onClick={() => void props.onDeleteApiKey()} disabled={!props.hasApiKey}>
-            Remove Key
           </button>
           <button className="button button-secondary" onClick={() => void props.onExportData()}>
             Export
