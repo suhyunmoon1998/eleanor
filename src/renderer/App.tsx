@@ -199,9 +199,9 @@ function formatProblemAnswerReport(report: CompletedReport | null) {
     report.summary,
     "",
     ...report.problemAnswerPairs.flatMap((pair, index) => [
-      `${index + 1}. 문제: ${pair.problem}`,
-      `   답: ${pair.answer}`,
-      pair.evidence ? `   근거: ${pair.evidence}` : "",
+      `${index + 1}. Problem: ${pair.problem}`,
+      `   Answer: ${pair.answer}`,
+      pair.evidence ? `   Evidence: ${pair.evidence}` : "",
       "",
     ]),
   ]
@@ -1000,8 +1000,8 @@ function InterviewView(props: {
           <div className="problem-answer-list">
             {props.completedReport.problemAnswerPairs.map((pair, index) => (
               <section className="problem-answer-card" key={`${pair.problem}-${index}`}>
-                <p><strong>문제:</strong> {pair.problem}</p>
-                <p><strong>답:</strong> {pair.answer}</p>
+                <p><strong>Problem:</strong> {pair.problem}</p>
+                <p><strong>Answer:</strong> {pair.answer}</p>
                 {pair.evidence ? <span>{pair.evidence}</span> : null}
               </section>
             ))}
