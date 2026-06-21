@@ -339,7 +339,7 @@ export class AIService {
       system: [
         this.buildFinalReportInstructions(),
         "Return only valid JSON with no markdown fence and no commentary.",
-        "The JSON object must include title, summary, problemAnswerPairs, keyPoints, and openQuestions.",
+        "The JSON object must include title, summary, problemAnswerPairs, keyPoints, and openQuestions. Every problemAnswerPairs item must include problem, answer, and evidence. Use evidence: null when there is no useful evidence label.",
       ].join("\n\n"),
       messages: [
         {
@@ -364,7 +364,7 @@ export class AIService {
       "Problem / Answer must NOT duplicate Conversation History. Do not restate the dialogue turn-by-turn and do not copy long user transcript passages.",
       "For problem, write the operational question that K-Sync or CaseSync needs resolved, such as a trigger condition, routing rule, procedure step, document requirement, deadline rule, approval point, exception, or stop condition.",
       "For answer, write the distilled confirmed rule, procedure, decision, or data value in implementation-ready language. Keep it shorter than the original user answer and combine repeated turns into one clear answer.",
-      "Use evidence only to name the source type, confidence/status, or related trigger. Do not use evidence as another transcript field.",
+      "Use evidence only to name the source type, confidence/status, or related trigger. Do not use evidence as another transcript field. Evidence is required; use null when there is no useful evidence label.",
       "If the transcript shows a question but no real answer, write Not confirmed in the answer.",
       "Prefer 3 to 12 high-signal pairs over many tiny fragments.",
       "Keep summary short. keyPoints should capture what matters most. openQuestions should list unresolved items.",

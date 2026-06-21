@@ -164,7 +164,7 @@ function buildFallbackProblemAnswerPairs(session: SessionRecord, unsavedDraft: s
 
   return pairs.length > 0
     ? pairs
-    : [{ problem: "What operational issue was resolved?", answer: "No structured answer has been captured yet." }];
+    : [{ problem: "What operational issue was resolved?", answer: "No structured answer has been captured yet.", evidence: null }];
 }
 
 function buildCompletedReport(

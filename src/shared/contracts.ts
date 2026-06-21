@@ -88,7 +88,7 @@ export const extractionResultSchema = z.object({
 export const problemAnswerPairSchema = z.object({
   problem: z.string(),
   answer: z.string(),
-  evidence: z.string().optional(),
+  evidence: z.string().nullable(),
 });
 
 export const finalReportResultSchema = z.object({
