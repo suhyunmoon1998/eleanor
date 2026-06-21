@@ -93,6 +93,7 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TEXT_FIELD_CHARS = 900;
 const MAX_TRANSCRIPT_TURNS_FOR_FINAL_REPORT = 50;
 const MAX_CAPTURE_FIELDS = 40;
+const BRITISH_LADY_VOICE = "shimmer";
 
 function compactText(value: unknown, maxChars = MAX_TEXT_FIELD_CHARS) {
   if (typeof value !== "string") return value;
@@ -152,7 +153,7 @@ export class AIService {
       body: this.buildRealtimeFormData({
         offerSdp,
         realtimeModel: settings.realtimeModel,
-        voice: settings.voice,
+        voice: this.resolveRealtimeVoice(settings.voice),
       }),
     });
 
@@ -582,5 +583,9 @@ export class AIService {
       }),
     );
     return form;
+  }
+
+  private resolveRealtimeVoice(configuredVoice: string) {
+    return configuredVoice === "marin" ? BRITISH_LADY_VOICE : configuredVoice || BRITISH_LADY_VOICE;
   }
 }

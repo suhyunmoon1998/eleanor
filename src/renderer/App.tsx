@@ -38,7 +38,7 @@ const providerOptions: Array<{ value: AiProvider; label: string }> = [
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Claude" },
 ];
-const voiceOptions = ["marin", "cedar", "alloy"];
+const voiceOptions = ["shimmer", "coral", "sage", "marin", "cedar", "alloy"];
 const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realtimeModel" | "fallbackRealtimeModel" | "extractionModel" | "fallbackExtractionModel" | "voice">> = {
   openai: {
     provider: "openai",
@@ -46,7 +46,7 @@ const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realti
     fallbackRealtimeModel: "gpt-realtime-mini",
     extractionModel: "gpt-5.2",
     fallbackExtractionModel: "gpt-5-mini",
-    voice: "marin",
+    voice: "shimmer",
   },
   anthropic: {
     provider: "anthropic",
@@ -54,7 +54,7 @@ const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realti
     fallbackRealtimeModel: "gpt-realtime-mini",
     extractionModel: "claude-sonnet-4-6",
     fallbackExtractionModel: "claude-haiku-4-5",
-    voice: "marin",
+    voice: "shimmer",
   },
 };
 
