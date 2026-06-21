@@ -129,31 +129,42 @@ function cleanPreviewText(text: string, maxLength = 96) {
 
 function buildFallbackProblemAnswerPairs(session: SessionRecord, unsavedDraft: string): FinalReportResult["problemAnswerPairs"] {
   const pairs: FinalReportResult["problemAnswerPairs"] = [];
-  const transcript = session.transcript;
+  const captureEntries = Object.entries(session.capture).slice(-8);
 
-  transcript.forEach((entry, index) => {
-    if (entry.role !== "user") return;
-    const previousAssistant = transcript
-      .slice(0, index)
-      .reverse()
-      .find((item) => item.role === "assistant");
+  captureEntries.forEach(([key, value]) => {
+    const patch =
+      value && typeof value === "object"
+        ? (value as { entity?: unknown; field?: unknown; value?: unknown; status?: unknown })
+        : null;
+    const problem = [patch?.entity, patch?.field].filter(Boolean).join(" / ") || key;
+    const answer = typeof patch?.value === "string" ? patch.value : shortText(JSON.stringify(value), 240);
 
     pairs.push({
-      problem: previousAssistant?.text.split("\n").filter(Boolean).at(-1) ?? `Interview answer ${pairs.length + 1}`,
-      answer: entry.text,
-      evidence: entry.createdAt,
+      problem: `What is confirmed for ${problem}?`,
+      answer: answer || "Not confirmed.",
+      evidence: typeof patch?.status === "string" ? patch.status : "Saved structured capture.",
     });
   });
 
+  if (pairs.length === 0 && session.progress[session.familyId]?.length) {
+    pairs.push({
+      problem: `Which ${session.familyId} triggers were confirmed?`,
+      answer: session.progress[session.familyId].join(", "),
+      evidence: "Saved trigger progress.",
+    });
+  }
+
   if (unsavedDraft.trim()) {
     pairs.push({
-      problem: "Unsaved final note",
-      answer: unsavedDraft.trim(),
+      problem: "What still needs review from the final typed note?",
+      answer: shortText(unsavedDraft, 240),
       evidence: "Typed draft at finish time.",
     });
   }
 
-  return pairs.length > 0 ? pairs : [{ problem: "Conversation content", answer: "No saved answers yet." }];
+  return pairs.length > 0
+    ? pairs
+    : [{ problem: "What operational issue was resolved?", answer: "No structured answer has been captured yet." }];
 }
 
 function buildCompletedReport(
@@ -1065,7 +1076,7 @@ function InterviewView(props: {
         </article>
 
         <article className="answer-card">
-          <p className="section-title">Problem / Answer</p>
+          <p className="section-title">Resolved Rules / Answers</p>
           <div className="problem-answer-list">
             {props.completedReport.problemAnswerPairs.map((pair, index) => (
               <section className="problem-answer-card" key={`${pair.problem}-${index}`}>

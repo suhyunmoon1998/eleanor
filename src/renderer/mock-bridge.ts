@@ -323,18 +323,17 @@ async function fetchJson(path: string, init?: RequestInit) {
 }
 
 function buildMockFinalReport(session: SessionRecord, unsavedDraft: string): FinalReportResult {
-  const userTurns = session.transcript.filter((entry) => entry.role === "user");
-  const assistantTurns = session.transcript.filter((entry) => entry.role === "assistant");
-  const pairs = userTurns.slice(-8).map((entry, index) => ({
-    problem: assistantTurns[index]?.text.split("\n").filter(Boolean).at(-1) ?? `Interview answer ${index + 1}`,
-    answer: entry.text,
-    evidence: "Preview mode generated this from saved transcript turns.",
+  const captureEntries = Object.entries(session.capture).slice(-8);
+  const pairs = captureEntries.map(([key, value]) => ({
+    problem: `What is confirmed for ${key}?`,
+    answer: typeof value === "string" ? value : shortText(JSON.stringify(value), 240),
+    evidence: "Preview mode generated this from structured capture.",
   }));
 
   if (unsavedDraft.trim()) {
     pairs.push({
-      problem: "Unsaved final note",
-      answer: unsavedDraft.trim(),
+      problem: "What still needs review from the final typed note?",
+      answer: shortText(unsavedDraft, 240),
       evidence: "Typed draft at finish time.",
     });
   }
@@ -342,8 +341,13 @@ function buildMockFinalReport(session: SessionRecord, unsavedDraft: string): Fin
   return {
     title: `${session.title} final report`,
     summary: pairs.length > 0 ? `Prepared ${pairs.length} problem-answer item${pairs.length === 1 ? "" : "s"}.` : "No answered items were captured yet.",
-    problemAnswerPairs: pairs.length > 0 ? pairs : [{ problem: "Conversation content", answer: "No saved answers yet.", evidence: "No transcript turns." }],
+    problemAnswerPairs: pairs.length > 0 ? pairs : [{ problem: "What operational issue was resolved?", answer: "No structured answer has been captured yet.", evidence: "No structured capture." }],
     keyPoints: pairs.slice(0, 5).map((pair) => pair.answer),
     openQuestions: session.currentQuestion ? [session.currentQuestion] : ["No saved open question."],
   };
+}
+
+function shortText(text: string, maxLength = 240) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 }
