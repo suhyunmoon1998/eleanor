@@ -20,6 +20,7 @@ const api = {
   },
   createRealtimeSession: (offerSdp: string) => ipcRenderer.invoke("eleanor:create-realtime-session", offerSdp),
   exportLocalData: () => ipcRenderer.invoke("eleanor:export-local-data"),
+  exportKnowledgePack: () => ipcRenderer.invoke("eleanor:export-knowledge-pack"),
   deleteLocalData: () => ipcRenderer.invoke("eleanor:delete-local-data"),
 };
 

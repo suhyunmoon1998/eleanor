@@ -24,6 +24,7 @@ declare global {
       synthesizeSpeech: (input: { text: string }) => Promise<Blob | null>;
       createRealtimeSession: (offerSdp: string) => Promise<string>;
       exportLocalData: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
+      exportKnowledgePack: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
       deleteLocalData: () => Promise<{ ok: boolean }>;
     };
   }

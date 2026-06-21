@@ -401,7 +401,12 @@ export function App() {
 
   async function handleExportData() {
     const result = await bridge.exportLocalData();
-    setSettingsMessage(result.canceled ? "Export canceled." : `Local data exported to ${result.filePath}.`);
+    setSettingsMessage(result.canceled ? "Export canceled." : `Raw JSON backup exported to ${result.filePath}.`);
+  }
+
+  async function handleExportKnowledgePack() {
+    const result = await bridge.exportKnowledgePack();
+    setSettingsMessage(result.canceled ? "Export canceled." : `ChatGPT knowledge pack exported to ${result.filePath}.`);
   }
 
   async function handleDeleteLocalData() {
@@ -898,6 +903,9 @@ export function App() {
             {connectionMessage ? <p className="hint success">{connectionMessage}</p> : null}
             {settingsMessage ? <p className="hint success">{settingsMessage}</p> : null}
             {errorMessage ? <p className="hint danger">{errorMessage}</p> : null}
+            <button className="button button-secondary sidebar-action" onClick={() => void handleExportKnowledgePack()}>
+              Export for ChatGPT
+            </button>
           </div>
         </section>
 

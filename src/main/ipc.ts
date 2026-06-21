@@ -7,6 +7,7 @@ import {
   saveSettingsInputSchema,
   updateSessionInputSchema,
 } from "../shared/contracts.js";
+import { buildKnowledgePackMarkdown } from "../shared/knowledge-export.js";
 import type { AIService } from "./services/ai-service.js";
 import type { AppStore } from "./services/app-store.js";
 import type { SecretStore } from "./services/secret-store.js";
@@ -119,6 +120,30 @@ export function registerIpcHandlers({ appStore, ai, secretStore, sources, dataRo
         null,
         2,
       ),
+      "utf8",
+    );
+
+    return { ok: true, canceled: false, filePath: result.filePath };
+  });
+  ipcMain.handle("eleanor:export-knowledge-pack", async () => {
+    const exportData = await appStore.exportState();
+    const result = await dialog.showSaveDialog({
+      title: "Export Eleanor knowledge pack",
+      defaultPath: "eleanor-knowledge-pack.md",
+      filters: [{ name: "Markdown", extensions: ["md"] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { ok: false, canceled: true };
+    }
+
+    await writeFile(
+      result.filePath,
+      buildKnowledgePackMarkdown({
+        exportedAt: new Date().toISOString(),
+        storagePath: dataRoot,
+        data: exportData,
+      }),
       "utf8",
     );
 

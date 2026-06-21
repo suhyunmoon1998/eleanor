@@ -234,6 +234,11 @@ textarea {
   color: var(--accent);
 }
 
+.sidebar-action {
+  width: 100%;
+  margin-top: 2px;
+}
+
 .button-danger {
   background: #7f2f22;
   color: white;

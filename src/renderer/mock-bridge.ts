@@ -23,6 +23,7 @@ export type RendererBridge = {
   synthesizeSpeech: (input: { text: string }) => Promise<Blob | null>;
   createRealtimeSession: (offerSdp: string) => Promise<string>;
   exportLocalData: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
+  exportKnowledgePack: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
   deleteLocalData: () => Promise<{ ok: boolean }>;
 };
 
@@ -210,6 +211,9 @@ export const mockBridge: RendererBridge = {
   async exportLocalData() {
     return { ok: true, canceled: false, filePath: "Preview mode" };
   },
+  async exportKnowledgePack() {
+    return { ok: true, canceled: false, filePath: "Preview mode" };
+  },
   async deleteLocalData() {
     localStorage.removeItem(settingsKey);
     localStorage.removeItem(sessionsKey);
@@ -309,6 +313,20 @@ const webBridge: RendererBridge = {
     link.click();
     URL.revokeObjectURL(url);
     return { ok: true, canceled: false, filePath: "eleanor-v3-export.json" };
+  },
+  async exportKnowledgePack() {
+    const response = await fetch("/api/export-knowledge-pack");
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "eleanor-knowledge-pack.md";
+    link.click();
+    URL.revokeObjectURL(url);
+    return { ok: true, canceled: false, filePath: "eleanor-knowledge-pack.md" };
   },
   async deleteLocalData() {
     return fetchJson("/api/delete-local-data", { method: "POST" });

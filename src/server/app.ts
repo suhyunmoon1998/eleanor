@@ -9,6 +9,7 @@ import {
   saveSettingsInputSchema,
   updateSessionInputSchema,
 } from "../shared/contracts.js";
+import { buildKnowledgePackMarkdown } from "../shared/knowledge-export.js";
 import { AIService } from "../main/services/ai-service.js";
 import { AppStore } from "../main/services/app-store.js";
 import { SourceRepository } from "../main/services/source-repository.js";
@@ -166,6 +167,19 @@ export async function buildServerApp(options: ServerAppOptions = {}) {
       storagePath: dataRoot,
       data: exportData,
     };
+  });
+
+  app.get("/api/export-knowledge-pack", async (_request, reply) => {
+    const exportedAt = new Date().toISOString();
+    const exportData = await appStore.exportState();
+    const markdown = buildKnowledgePackMarkdown({
+      exportedAt,
+      storagePath: dataRoot,
+      data: exportData,
+    });
+    reply.header("content-type", "text/markdown; charset=utf-8");
+    reply.header("content-disposition", 'attachment; filename="eleanor-knowledge-pack.md"');
+    return markdown;
   });
 
   app.post("/api/delete-local-data", async () => {
