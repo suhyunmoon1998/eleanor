@@ -908,9 +908,9 @@ export function App() {
           </div>
         </section>
 
-        <section className="card">
+        <section className="card recent-card">
           <p className="section-title">Recent Sessions</p>
-          <div className="stack">
+          <div className="stack recent-list">
             {data.recentSessions.length === 0 ? <p className="hint">No sessions yet.</p> : null}
             {data.recentSessions.map((session) => {
               const preview = cleanPreviewText(session.currentQuestion);

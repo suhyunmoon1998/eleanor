@@ -54,10 +54,13 @@ textarea {
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   padding: 24px;
   border-right: 1px solid var(--border);
   background: rgba(248, 250, 252, 0.9);
   backdrop-filter: blur(18px);
+  max-height: 100vh;
   overflow: hidden;
 }
 
@@ -130,6 +133,30 @@ textarea {
 .stack {
   display: grid;
   gap: 10px;
+}
+
+.recent-card {
+  flex: 1 1 220px;
+  min-height: 180px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.recent-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
+.recent-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.recent-list::-webkit-scrollbar-thumb {
+  background: rgba(37, 99, 235, 0.22);
+  border-radius: 999px;
 }
 
 .field {
