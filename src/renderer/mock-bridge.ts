@@ -35,7 +35,7 @@ const defaultSettings: AppSettings = {
   fallbackRealtimeModel: "gpt-realtime-mini",
   extractionModel: "gpt-5.2",
   fallbackExtractionModel: "gpt-5-mini",
-  voice: "shimmer",
+  voice: "coral",
 };
 
 function readSettings(): AppSettings {

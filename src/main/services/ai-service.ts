@@ -93,7 +93,7 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TEXT_FIELD_CHARS = 900;
 const MAX_TRANSCRIPT_TURNS_FOR_FINAL_REPORT = 50;
 const MAX_CAPTURE_FIELDS = 40;
-const BRITISH_LADY_VOICE = "shimmer";
+const BRITISH_LADY_VOICE = "coral";
 
 function compactText(value: unknown, maxChars = MAX_TEXT_FIELD_CHARS) {
   if (typeof value !== "string") return value;
@@ -588,6 +588,6 @@ export class AIService {
   }
 
   private resolveRealtimeVoice(configuredVoice: string) {
-    return configuredVoice === "marin" ? BRITISH_LADY_VOICE : configuredVoice || BRITISH_LADY_VOICE;
+    return configuredVoice === "marin" || configuredVoice === "shimmer" ? BRITISH_LADY_VOICE : configuredVoice || BRITISH_LADY_VOICE;
   }
 }

@@ -58,7 +58,7 @@ export async function buildServerApp(options: ServerAppOptions = {}) {
       provider: settings.provider,
       realtimeModel: settings.realtimeModel,
       extractionModel: settings.extractionModel,
-      voice: settings.voice === "marin" ? "shimmer" : settings.voice,
+      voice: settings.voice === "marin" || settings.voice === "shimmer" ? "coral" : settings.voice,
     };
   });
 

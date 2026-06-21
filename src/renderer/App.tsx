@@ -38,7 +38,7 @@ const providerOptions: Array<{ value: AiProvider; label: string }> = [
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Claude" },
 ];
-const voiceOptions = ["shimmer", "coral", "sage", "marin", "cedar", "alloy"];
+const voiceOptions = ["coral", "shimmer", "sage", "marin", "cedar", "alloy"];
 const LIVE_IDLE_FAILSAFE_MS = 5 * 60 * 1000;
 const LIVE_MAX_SESSION_MS = 45 * 60 * 1000;
 const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realtimeModel" | "fallbackRealtimeModel" | "extractionModel" | "fallbackExtractionModel" | "voice">> = {
@@ -48,7 +48,7 @@ const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realti
     fallbackRealtimeModel: "gpt-realtime-mini",
     extractionModel: "gpt-5.2",
     fallbackExtractionModel: "gpt-5-mini",
-    voice: "shimmer",
+    voice: "coral",
   },
   anthropic: {
     provider: "anthropic",
@@ -56,7 +56,7 @@ const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realti
     fallbackRealtimeModel: "gpt-realtime-mini",
     extractionModel: "claude-sonnet-4-6",
     fallbackExtractionModel: "claude-haiku-4-5",
-    voice: "shimmer",
+    voice: "coral",
   },
 };
 

@@ -7,7 +7,7 @@ describe("contracts", () => {
     expect(parsed.provider).toBe("openai");
     expect(parsed.realtimeModel).toBe("gpt-realtime");
     expect(parsed.extractionModel).toBe("gpt-5.2");
-    expect(parsed.voice).toBe("shimmer");
+    expect(parsed.voice).toBe("coral");
   });
 
   it("accepts a minimal session", () => {

@@ -6,7 +6,7 @@ export const appSettingsSchema = z.object({
   fallbackRealtimeModel: z.string().default("gpt-realtime-mini"),
   extractionModel: z.string().default("gpt-5.2"),
   fallbackExtractionModel: z.string().default("gpt-5-mini"),
-  voice: z.string().default("shimmer"),
+  voice: z.string().default("coral"),
   selectedInputDeviceId: z.string().optional(),
   selectedOutputDeviceId: z.string().optional(),
 });
