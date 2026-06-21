@@ -42,6 +42,9 @@ const providerOptions: Array<{ value: AiProvider; label: string }> = [
 const voiceOptions = ["coral", "shimmer", "sage", "marin", "cedar", "alloy"];
 const LIVE_IDLE_FAILSAFE_MS = 5 * 60 * 1000;
 const LIVE_MAX_SESSION_MS = 45 * 60 * 1000;
+const TTS_FETCH_FAILSAFE_MS = 30 * 1000;
+const TTS_PLAYBACK_MIN_FAILSAFE_MS = 12 * 1000;
+const TTS_PLAYBACK_MAX_FAILSAFE_MS = 45 * 1000;
 const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realtimeModel" | "fallbackRealtimeModel" | "extractionModel" | "fallbackExtractionModel" | "voice">> = {
   openai: {
     provider: "openai",
@@ -67,6 +70,13 @@ function providerSupportsLiveVoice(provider: AiProvider) {
 
 function providerLabel(provider: AiProvider) {
   return provider === "anthropic" ? "Claude" : "OpenAI";
+}
+
+function estimateTtsPlaybackFailsafeMs(text: string) {
+  return Math.min(
+    TTS_PLAYBACK_MAX_FAILSAFE_MS,
+    Math.max(TTS_PLAYBACK_MIN_FAILSAFE_MS, text.length * 90 + 5000),
+  );
 }
 
 function applyProviderPreset(settings: AppSettings, provider: AiProvider): AppSettings {
@@ -325,7 +335,23 @@ export function App() {
     if (!ttsAudioRef.current) return;
     ttsAudioRef.current.pause();
     ttsAudioRef.current.src = "";
+    ttsAudioRef.current.remove();
     ttsAudioRef.current = null;
+  }
+
+  async function unlockMobileAudioPlayback() {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    try {
+      if (context.state === "suspended") {
+        await context.resume();
+      }
+    } finally {
+      void context.close();
+    }
   }
 
   function clearLiveFailsafeTimers() {
@@ -614,6 +640,7 @@ export function App() {
 
     setErrorMessage("");
     setLiveStatus("Connecting microphone...");
+    void unlockMobileAudioPlayback().catch(() => undefined);
     const liveSession = new LiveRealtimeSession({
       onAssistantTranscript: (text) => {
         const currentSession = activeSessionRef.current;
@@ -810,12 +837,20 @@ export function App() {
     const shouldRestoreMic = liveSessionRef.current?.isConnected() && liveSessionRef.current.isMicrophoneEnabled();
 
     try {
-      const audioBlob = await bridge.synthesizeSpeech({ text: cleanText });
+      const audioBlob = await withTimeout(
+        bridge.synthesizeSpeech({ text: cleanText }),
+        TTS_FETCH_FAILSAFE_MS,
+        "British TTS took too long to respond.",
+      );
       if (!audioBlob) return false;
 
       stopTtsAudio();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      audio.preload = "auto";
+      audio.setAttribute("playsinline", "true");
+      audio.style.display = "none";
+      document.body.appendChild(audio);
       ttsAudioRef.current = audio;
       if (shouldRestoreMic) {
         liveSessionRef.current?.setMicrophoneEnabled(false);
@@ -825,11 +860,22 @@ export function App() {
 
       try {
         await new Promise<void>((resolve, reject) => {
-          audio.onended = () => resolve();
-          audio.onerror = () => reject(new Error("British TTS playback failed."));
+          const playbackFailsafeId = window.setTimeout(() => {
+            resolve();
+          }, estimateTtsPlaybackFailsafeMs(cleanText));
+          audio.onended = () => {
+            window.clearTimeout(playbackFailsafeId);
+            resolve();
+          };
+          audio.onerror = () => {
+            window.clearTimeout(playbackFailsafeId);
+            reject(new Error("British TTS playback failed."));
+          };
           void audio.play().catch(reject);
         });
       } finally {
+        audio.pause();
+        audio.remove();
         if (ttsAudioRef.current === audio) {
           ttsAudioRef.current = null;
         }
