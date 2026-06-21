@@ -39,6 +39,8 @@ const providerOptions: Array<{ value: AiProvider; label: string }> = [
   { value: "anthropic", label: "Claude" },
 ];
 const voiceOptions = ["shimmer", "coral", "sage", "marin", "cedar", "alloy"];
+const LIVE_IDLE_FAILSAFE_MS = 5 * 60 * 1000;
+const LIVE_MAX_SESSION_MS = 45 * 60 * 1000;
 const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realtimeModel" | "fallbackRealtimeModel" | "extractionModel" | "fallbackExtractionModel" | "voice">> = {
   openai: {
     provider: "openai",
@@ -213,6 +215,8 @@ export function App() {
   const bridge = getBridge();
   const nativeBridge = hasNativeBridge();
   const liveSessionRef = useRef<LiveRealtimeSession | null>(null);
+  const liveIdleTimerRef = useRef<number | null>(null);
+  const liveMaxTimerRef = useRef<number | null>(null);
   const isExtractingRef = useRef(false);
   const activeSessionRef = useRef<SessionRecord | null>(null);
   const bootstrapRef = useRef<BootstrapState | null>(null);
@@ -271,9 +275,43 @@ export function App() {
 
   useEffect(() => {
     return () => {
+      clearLiveFailsafeTimers();
       liveSessionRef.current?.disconnect();
     };
   }, []);
+
+  function clearLiveFailsafeTimers() {
+    if (liveIdleTimerRef.current) {
+      window.clearTimeout(liveIdleTimerRef.current);
+      liveIdleTimerRef.current = null;
+    }
+    if (liveMaxTimerRef.current) {
+      window.clearTimeout(liveMaxTimerRef.current);
+      liveMaxTimerRef.current = null;
+    }
+  }
+
+  function resetLiveIdleFailsafe() {
+    if (!liveSessionRef.current?.isConnected()) return;
+    if (liveIdleTimerRef.current) {
+      window.clearTimeout(liveIdleTimerRef.current);
+    }
+    liveIdleTimerRef.current = window.setTimeout(() => {
+      stopLiveVoice("Live voice stopped automatically after 5 minutes of inactivity.");
+    }, LIVE_IDLE_FAILSAFE_MS);
+  }
+
+  function armLiveFailsafes() {
+    clearLiveFailsafeTimers();
+    resetLiveIdleFailsafe();
+    liveMaxTimerRef.current = window.setTimeout(() => {
+      stopLiveVoice("Live voice stopped automatically after 45 minutes for safety.");
+    }, LIVE_MAX_SESSION_MS);
+  }
+
+  function noteLiveActivity() {
+    resetLiveIdleFailsafe();
+  }
 
   async function refresh() {
     try {
@@ -521,16 +559,19 @@ export function App() {
     setLiveStatus("Connecting microphone...");
     const liveSession = new LiveRealtimeSession({
       onAssistantTranscript: (text) => {
+        noteLiveActivity();
         const currentSession = activeSessionRef.current;
         if (currentSession) {
           void appendTranscriptEntry(currentSession.id, "assistant", text);
         }
       },
       onUserTranscriptDelta: (text) => {
+        noteLiveActivity();
         setLiveTranscriptPreview(text);
         setLiveStatus("Listening...");
       },
       onUserTranscript: (text) => {
+        noteLiveActivity();
         appendDraftAnswer(text);
         const currentSession = activeSessionRef.current;
         if (currentSession) {
@@ -538,14 +579,29 @@ export function App() {
         }
       },
       onSpeechStart: () => {
+        noteLiveActivity();
         setLiveStatus("I can hear you...");
       },
       onSpeechStop: () => {
+        noteLiveActivity();
         setLiveStatus("Transcribing...");
       },
-      onStatus: (text) => setLiveStatus(text),
-      onConnectionChange: (connected) => setLiveConnected(connected),
-      onError: (message) => setErrorMessage(message),
+      onStatus: (text) => {
+        noteLiveActivity();
+        setLiveStatus(text);
+      },
+      onConnectionChange: (connected) => {
+        setLiveConnected(connected);
+        if (connected) {
+          resetLiveIdleFailsafe();
+        } else {
+          clearLiveFailsafeTimers();
+        }
+      },
+      onError: (message) => {
+        setErrorMessage(message);
+        stopLiveVoice("Live voice stopped automatically after a connection error.");
+      },
     });
     liveSessionRef.current = liveSession;
     activeSessionRef.current = session;
@@ -556,18 +612,31 @@ export function App() {
         inputDeviceId: data.settings.selectedInputDeviceId,
       });
       setMicPaused(false);
+      armLiveFailsafes();
       sendLiveFamilyPrompt(session, true);
     } catch (error) {
+      clearLiveFailsafeTimers();
+      liveSessionRef.current = null;
+      setLiveConnected(false);
+      setMicPaused(false);
       setErrorMessage(error instanceof Error ? error.message : "Failed to start voice.");
     }
   }
 
-  function handleStopLiveVoice() {
+  function stopLiveVoice(statusMessage?: string) {
+    clearLiveFailsafeTimers();
     liveSessionRef.current?.disconnect();
     liveSessionRef.current = null;
     setLiveConnected(false);
     setLiveTranscriptPreview("");
     setMicPaused(false);
+    if (statusMessage) {
+      setLiveStatus(statusMessage);
+    }
+  }
+
+  function handleStopLiveVoice() {
+    stopLiveVoice();
   }
 
   async function handleFinishInterview() {
@@ -1131,6 +1200,7 @@ function InterviewView(props: {
                   <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Live voice"}</p>
                   <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
                   <p className="hint">Keep talking naturally. If a word sounds off, Eleanor will infer it from context or ask you to confirm.</p>
+                  <p className="hint">Fail-safe: live audio stops after 5 minutes idle or 45 minutes maximum.</p>
                 </article>
 
                 <article className="answer-card">
