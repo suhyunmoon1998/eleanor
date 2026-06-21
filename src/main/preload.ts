@@ -12,6 +12,12 @@ const api = {
   updateSession: (input: unknown) => ipcRenderer.invoke("eleanor:update-session", input),
   runExtraction: (input: unknown) => ipcRenderer.invoke("eleanor:run-extraction", input),
   finalizeReport: (input: unknown) => ipcRenderer.invoke("eleanor:finalize-report", input),
+  synthesizeSpeech: async (input: { text: string }) => {
+    const result = await ipcRenderer.invoke("eleanor:synthesize-speech", input);
+    if (!result) return null;
+    const bytes = Uint8Array.from(atob(result.audioBase64), (char) => char.charCodeAt(0));
+    return new Blob([bytes], { type: result.contentType });
+  },
   createRealtimeSession: (offerSdp: string) => ipcRenderer.invoke("eleanor:create-realtime-session", offerSdp),
   exportLocalData: () => ipcRenderer.invoke("eleanor:export-local-data"),
   deleteLocalData: () => ipcRenderer.invoke("eleanor:delete-local-data"),

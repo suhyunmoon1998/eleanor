@@ -21,6 +21,7 @@ declare global {
       updateSession: (input: unknown) => Promise<SessionRecord>;
       runExtraction: (input: unknown) => Promise<ExtractionResult>;
       finalizeReport: (input: unknown) => Promise<FinalReportResult>;
+      synthesizeSpeech: (input: { text: string }) => Promise<Blob | null>;
       createRealtimeSession: (offerSdp: string) => Promise<string>;
       exportLocalData: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
       deleteLocalData: () => Promise<{ ok: boolean }>;

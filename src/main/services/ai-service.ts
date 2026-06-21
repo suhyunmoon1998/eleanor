@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { Buffer } from "node:buffer";
 import { buildExtractionInstructions, ELEANOR_VOICE_INSTRUCTIONS } from "../../shared/prompting.js";
 import {
   finalReportInputSchema,
@@ -179,6 +180,46 @@ export class AIService {
       return this.runAnthropicFinalReport(parsed, settings);
     }
     return this.runOpenAIFinalReport(parsed, settings);
+  }
+
+  async synthesizeSpeech(input: unknown) {
+    const parsed = z.object({ text: z.string().min(1).max(5000) }).parse(input);
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const voiceId = process.env.ELEVENLABS_VOICE_ID;
+    if (!apiKey || !voiceId) {
+      return null;
+    }
+
+    const modelId = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
+    const outputFormat = process.env.ELEVENLABS_OUTPUT_FORMAT || "mp3_44100_128";
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=${encodeURIComponent(outputFormat)}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "xi-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        text: parsed.text,
+        model_id: modelId,
+        language_code: "en",
+        voice_settings: {
+          stability: 0.58,
+          similarity_boost: 0.82,
+          style: 0.18,
+          use_speaker_boost: true,
+        },
+      }),
+    });
+
+    const arrayBuffer = await response.arrayBuffer();
+    if (!response.ok) {
+      throw new Error(Buffer.from(arrayBuffer).toString("utf8") || `ElevenLabs TTS failed with ${response.status}.`);
+    }
+
+    return {
+      audio: Buffer.from(arrayBuffer),
+      contentType: response.headers.get("content-type") || "audio/mpeg",
+    };
   }
 
   private async testOpenAIConnection(settings: AppSettings): Promise<TestConnectionResult> {

@@ -59,6 +59,8 @@ export async function buildServerApp(options: ServerAppOptions = {}) {
       realtimeModel: settings.realtimeModel,
       extractionModel: settings.extractionModel,
       voice: settings.voice === "marin" || settings.voice === "shimmer" ? "coral" : settings.voice,
+      britishTtsConfigured: Boolean(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
+      ttsProvider: process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID ? "elevenlabs" : "openai-realtime-fallback",
     };
   });
 
@@ -137,6 +139,16 @@ export async function buildServerApp(options: ServerAppOptions = {}) {
   app.post("/api/run-extraction", async (request) => ai.runExtraction(request.body));
 
   app.post("/api/finalize-report", async (request) => ai.finalizeReport(request.body));
+
+  app.post("/api/tts", async (request, reply) => {
+    const speech = await ai.synthesizeSpeech(request.body);
+    if (!speech) {
+      reply.code(501);
+      return { error: "British TTS is not configured. Add ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID." };
+    }
+    reply.header("content-type", speech.contentType);
+    return reply.send(speech.audio);
+  });
 
   app.post("/api/realtime/session", async (request, reply) => {
     const offerSdp = typeof request.body === "string" ? request.body : "";

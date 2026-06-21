@@ -226,6 +226,7 @@ export function App() {
   const bridge = getBridge();
   const nativeBridge = hasNativeBridge();
   const liveSessionRef = useRef<LiveRealtimeSession | null>(null);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const liveIdleTimerRef = useRef<number | null>(null);
   const liveMaxTimerRef = useRef<number | null>(null);
   const isExtractingRef = useRef(false);
@@ -287,9 +288,17 @@ export function App() {
   useEffect(() => {
     return () => {
       clearLiveFailsafeTimers();
+      stopTtsAudio();
       liveSessionRef.current?.disconnect();
     };
   }, []);
+
+  function stopTtsAudio() {
+    if (!ttsAudioRef.current) return;
+    ttsAudioRef.current.pause();
+    ttsAudioRef.current.src = "";
+    ttsAudioRef.current = null;
+  }
 
   function clearLiveFailsafeTimers() {
     if (liveIdleTimerRef.current) {
@@ -524,7 +533,11 @@ export function App() {
       await refresh();
 
       if (liveSessionRef.current?.isConnected()) {
-        sendStructuredLiveReply(nextSession, result);
+        const replyText = [result.spokenReply, result.nextQuestion].filter(Boolean).join("\n\n");
+        const usedBritishTts = await playAssistantSpeech(replyText);
+        if (!usedBritishTts) {
+          sendStructuredLiveReply(nextSession, result);
+        }
         liveSessionRef.current.setMicrophoneEnabled(true);
         setMicPaused(false);
         setLiveStatus("Listening...");
@@ -562,7 +575,7 @@ export function App() {
       return;
     }
     if (liveSessionRef.current?.isConnected()) {
-      sendLiveFamilyPrompt(session);
+      void speakLivePromptOrFallback(session);
       return;
     }
 
@@ -624,7 +637,7 @@ export function App() {
       });
       setMicPaused(false);
       armLiveFailsafes();
-      sendLiveFamilyPrompt(session, true);
+      void speakLivePromptOrFallback(session, true);
     } catch (error) {
       clearLiveFailsafeTimers();
       liveSessionRef.current = null;
@@ -636,6 +649,7 @@ export function App() {
 
   function stopLiveVoice(statusMessage?: string) {
     clearLiveFailsafeTimers();
+    stopTtsAudio();
     liveSessionRef.current?.disconnect();
     liveSessionRef.current = null;
     setLiveConnected(false);
@@ -736,6 +750,74 @@ export function App() {
       liveSessionRef.current.requestAssistantReply(prompt);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not send the live prompt.");
+    }
+  }
+
+  async function speakLivePromptOrFallback(session: SessionRecord, isOpening = false) {
+    const promptText = buildLivePromptText(session, isOpening);
+    const usedBritishTts = await playAssistantSpeech(promptText);
+    if (!usedBritishTts) {
+      sendLiveFamilyPrompt(session, isOpening);
+    }
+  }
+
+  function buildLivePromptText(session: SessionRecord, isOpening = false) {
+    if (!isOpening && session.currentQuestion.trim()) {
+      return session.currentQuestion.trim();
+    }
+
+    if (session.lastAssistantReply.trim() || session.currentQuestion.trim()) {
+      return [session.lastAssistantReply, session.currentQuestion].filter(Boolean).join("\n\n");
+    }
+
+    return "Good afternoon. Could you tell me what happens first in this part of the workflow?";
+  }
+
+  async function playAssistantSpeech(text: string) {
+    const cleanText = text.trim();
+    if (!cleanText) return false;
+    const shouldRestoreMic = liveSessionRef.current?.isConnected() && liveSessionRef.current.isMicrophoneEnabled();
+
+    try {
+      const audioBlob = await bridge.synthesizeSpeech({ text: cleanText });
+      if (!audioBlob) return false;
+
+      stopTtsAudio();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      ttsAudioRef.current = audio;
+      if (shouldRestoreMic) {
+        liveSessionRef.current?.setMicrophoneEnabled(false);
+        setMicPaused(true);
+      }
+      setLiveStatus("Eleanor is speaking with British TTS...");
+      noteLiveActivity();
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          audio.onended = () => resolve();
+          audio.onerror = () => reject(new Error("British TTS playback failed."));
+          void audio.play().catch(reject);
+        });
+      } finally {
+        if (ttsAudioRef.current === audio) {
+          ttsAudioRef.current = null;
+        }
+        URL.revokeObjectURL(audioUrl);
+        if (shouldRestoreMic && liveSessionRef.current?.isConnected()) {
+          liveSessionRef.current.setMicrophoneEnabled(true);
+          setMicPaused(false);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "British TTS failed. Falling back to OpenAI voice.");
+      if (shouldRestoreMic && liveSessionRef.current?.isConnected()) {
+        liveSessionRef.current.setMicrophoneEnabled(true);
+        setMicPaused(false);
+      }
+      return false;
     }
   }
 

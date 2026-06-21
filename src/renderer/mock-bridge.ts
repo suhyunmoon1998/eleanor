@@ -20,6 +20,7 @@ export type RendererBridge = {
   updateSession: (input: unknown) => Promise<SessionRecord>;
   runExtraction: (input: unknown) => Promise<ExtractionResult>;
   finalizeReport: (input: unknown) => Promise<FinalReportResult>;
+  synthesizeSpeech: (input: { text: string }) => Promise<Blob | null>;
   createRealtimeSession: (offerSdp: string) => Promise<string>;
   exportLocalData: () => Promise<{ ok: boolean; canceled?: boolean; filePath?: string }>;
   deleteLocalData: () => Promise<{ ok: boolean }>;
@@ -200,6 +201,9 @@ export const mockBridge: RendererBridge = {
     const parsed = input as { session: SessionRecord; unsavedDraft?: string };
     return buildMockFinalReport(parsed.session, parsed.unsavedDraft ?? "");
   },
+  async synthesizeSpeech() {
+    return null;
+  },
   async createRealtimeSession() {
     return "Preview mode";
   },
@@ -262,6 +266,22 @@ const webBridge: RendererBridge = {
       method: "POST",
       body: JSON.stringify(input),
     });
+  },
+  async synthesizeSpeech(input: { text: string }) {
+    const response = await fetch("/api/tts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+    if (response.status === 501) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    return response.blob();
   },
   async createRealtimeSession(offerSdp: string) {
     const response = await fetch("/api/realtime/session", {
