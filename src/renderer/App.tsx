@@ -216,11 +216,24 @@ function formatProblemAnswerReport(report: CompletedReport | null) {
     .join("\n");
 }
 
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
 function formatConversationTranscript(session: SessionRecord | null) {
   if (!session) return "";
   const transcript = session.transcript.length
     ? session.transcript.flatMap((entry, index) => [
-        `${index + 1}. ${entry.role.toUpperCase()} · ${entry.createdAt}`,
+        `${index + 1}. ${entry.role.toUpperCase()} · ${formatDateTime(entry.createdAt)}`,
         entry.text.trim() || "(empty)",
         "",
       ])
@@ -230,8 +243,8 @@ function formatConversationTranscript(session: SessionRecord | null) {
     `Conversation History: ${session.title}`,
     `Session ID: ${session.id}`,
     `Family: ${session.familyId}`,
-    `Created: ${session.createdAt}`,
-    `Updated: ${session.updatedAt}`,
+    `Created: ${formatDateTime(session.createdAt)}`,
+    `Updated: ${formatDateTime(session.updatedAt)}`,
     "",
     ...transcript,
   ].join("\n").trim();
@@ -1422,7 +1435,7 @@ function ConversationHistory(props: { session: SessionRecord; emptyText: string 
     <div className="transcript history-list">
       {props.session.transcript.map((entry, index) => (
         <div key={entry.id} className={`bubble bubble-${entry.role}`}>
-          <span>{index + 1}. {entry.role}</span>
+          <span>{index + 1}. {entry.role} · {formatDateTime(entry.createdAt)}</span>
           <p>{entry.text}</p>
         </div>
       ))}

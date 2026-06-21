@@ -50,5 +50,6 @@ describe("knowledge export", () => {
     expect(markdown).toContain("Preserve extra firm workflow details.");
     expect(markdown).toContain("[parked] Review later for K-Sync mapping.");
     expect(markdown).toContain("Responsible owner");
+    expect(markdown).toMatch(/Jun 21, 2026, .* (UTC|GMT|PDT|PST|EDT|EST|CDT|CST|MDT|MST)/);
   });
 });

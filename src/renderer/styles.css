@@ -808,7 +808,8 @@ textarea {
   margin-bottom: 6px;
   font-size: 0.74rem;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
   color: var(--accent);
 }
 

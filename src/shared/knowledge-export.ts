@@ -22,6 +22,19 @@ function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
 function roleLabel(role: SessionRecord["transcript"][number]["role"]) {
   if (role === "assistant") return "Eleanor";
   if (role === "user") return "Jack";
@@ -37,7 +50,7 @@ function transcriptToMarkdown(session: SessionRecord) {
     .map((entry, index) => {
       const speaker = roleLabel(entry.role);
       const text = cleanMarkdownText(entry.text) || "(empty)";
-      return `### ${index + 1}. ${speaker} · ${entry.createdAt}\n\n${text}`;
+      return `### ${index + 1}. ${speaker} · ${formatDateTime(entry.createdAt)}\n\n${text}`;
     })
     .join("\n\n");
 }
@@ -66,8 +79,8 @@ function sessionToMarkdown(session: SessionRecord, index: number) {
     "",
     `- Session ID: ${session.id}`,
     `- Family: ${session.familyId}`,
-    `- Created: ${session.createdAt}`,
-    `- Updated: ${session.updatedAt}`,
+    `- Created: ${formatDateTime(session.createdAt)}`,
+    `- Updated: ${formatDateTime(session.updatedAt)}`,
     `- Saved turns: ${session.transcript.length}`,
     "",
     "## Current Interview State",
