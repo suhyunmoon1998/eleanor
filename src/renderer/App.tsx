@@ -332,7 +332,7 @@ export function App() {
       window.clearTimeout(liveIdleTimerRef.current);
     }
     liveIdleTimerRef.current = window.setTimeout(() => {
-      stopLiveVoice("Live voice stopped automatically after 5 minutes of inactivity.");
+      stopLiveVoice("Live voice stopped automatically after 5 minutes without user speech.");
     }, LIVE_IDLE_FAILSAFE_MS);
   }
 
@@ -344,7 +344,7 @@ export function App() {
     }, LIVE_MAX_SESSION_MS);
   }
 
-  function noteLiveActivity() {
+  function noteUserSpeechActivity() {
     resetLiveIdleFailsafe();
   }
 
@@ -603,19 +603,18 @@ export function App() {
     setLiveStatus("Connecting microphone...");
     const liveSession = new LiveRealtimeSession({
       onAssistantTranscript: (text) => {
-        noteLiveActivity();
         const currentSession = activeSessionRef.current;
         if (currentSession) {
           void appendTranscriptEntry(currentSession.id, "assistant", text);
         }
       },
       onUserTranscriptDelta: (text) => {
-        noteLiveActivity();
+        noteUserSpeechActivity();
         setLiveTranscriptPreview(text);
         setLiveStatus("Listening...");
       },
       onUserTranscript: (text) => {
-        noteLiveActivity();
+        noteUserSpeechActivity();
         appendDraftAnswer(text);
         const currentSession = activeSessionRef.current;
         if (currentSession) {
@@ -623,15 +622,14 @@ export function App() {
         }
       },
       onSpeechStart: () => {
-        noteLiveActivity();
+        noteUserSpeechActivity();
         setLiveStatus("I can hear you...");
       },
       onSpeechStop: () => {
-        noteLiveActivity();
+        noteUserSpeechActivity();
         setLiveStatus("Transcribing...");
       },
       onStatus: (text) => {
-        noteLiveActivity();
         setLiveStatus(text);
       },
       onConnectionChange: (connected) => {
@@ -811,7 +809,6 @@ export function App() {
         setMicPaused(true);
       }
       setLiveStatus("Eleanor is speaking with British TTS...");
-      noteLiveActivity();
 
       try {
         await new Promise<void>((resolve, reject) => {
@@ -1329,7 +1326,7 @@ function InterviewView(props: {
                   <p className="eyebrow">{props.isExtracting ? "Eleanor is thinking" : "Live voice"}</p>
                   <h2>{props.activeSession.currentQuestion || "Could you tell me what happens first?"}</h2>
                   <p className="hint">Keep talking naturally. If a word sounds off, Eleanor will infer it from context or ask you to confirm.</p>
-                  <p className="hint">Fail-safe: live audio stops after 5 minutes idle or 45 minutes maximum.</p>
+                  <p className="hint">Fail-safe: live audio stops after 5 minutes without user speech or 45 minutes maximum.</p>
                 </article>
 
                 <article className="answer-card">
