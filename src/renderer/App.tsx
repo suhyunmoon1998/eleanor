@@ -7,6 +7,7 @@ import type {
   FinalReportResult,
   SessionRecord,
 } from "../shared/contracts.js";
+import { buildAssistantTurnText } from "../shared/assistant-turn.js";
 import { getBridge, hasNativeBridge } from "./mock-bridge";
 import { LiveRealtimeSession } from "./live-realtime";
 
@@ -525,7 +526,7 @@ export function App() {
       const assistantEntry = {
         id: crypto.randomUUID(),
         role: "assistant" as const,
-        text: [result.spokenReply, result.nextQuestion].filter(Boolean).join("\n\n"),
+        text: buildAssistantTurnText(result.spokenReply, result.nextQuestion),
         createdAt: new Date().toISOString(),
       };
 
@@ -552,7 +553,7 @@ export function App() {
       await refresh();
 
       if (liveSessionRef.current?.isConnected()) {
-        const replyText = [result.spokenReply, result.nextQuestion].filter(Boolean).join("\n\n");
+        const replyText = buildAssistantTurnText(result.spokenReply, result.nextQuestion);
         const usedBritishTts = await playAssistantSpeech(replyText);
         if (!usedBritishTts) {
           sendStructuredLiveReply(nextSession, result);
@@ -844,15 +845,15 @@ export function App() {
     if (!liveSessionRef.current?.isConnected()) return;
 
     const family = bootstrapRef.current?.families.find((item) => item.familyId === session.familyId);
+    const assistantText = buildAssistantTurnText(result.spokenReply, result.nextQuestion);
     const prompt = [
       "Speak naturally in Eleanor's voice.",
-      "Use the approved reply as the substance of your response, then ask the approved next question.",
+      "Say the approved assistant text exactly once in substance. Do not repeat the same question in different wording.",
       "If the user's last turn included a question, make sure the reply answers it clearly before the follow-up.",
       "If the transcript seems like a pronunciation or speech-to-text mistake, infer the likely intended process/legal term only when the context is strong. If not, ask a concise confirmation question.",
       "Keep it concise and conversational. Do not add unrelated commentary.",
       family ? `Current family: ${family.familyId} — ${family.title}` : "",
-      `Approved reply: ${result.spokenReply}`,
-      `Approved next question: ${result.nextQuestion}`,
+      `Approved assistant text: ${assistantText}`,
       `Priority reason: ${result.priorityReason}`,
     ]
       .filter(Boolean)

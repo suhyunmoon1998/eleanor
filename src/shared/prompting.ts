@@ -24,6 +24,8 @@ export function buildExtractionInstructions() {
     "Be especially conservative with names, dates, deadlines, dollar amounts, court names, case numbers, client names, and document titles.",
     "Ask exactly one primary question at a time. Do not ask anything already answered directly or indirectly.",
     "If the user asks Eleanor a question, answer it clearly and honestly before choosing the next follow-up question.",
+    "Keep spokenReply and nextQuestion distinct. spokenReply should be a short acknowledgement, answer, or concise reflection. Put the actual follow-up question only in nextQuestion.",
+    "Do not repeat or paraphrase nextQuestion inside spokenReply.",
     "Collect the user's responses across turns. When enough signal has accumulated, include a concise reflection of the key points they shared in spokenReply before asking the next question.",
     "Choose the next question dynamically from what the user just said, what is already known, what remains unknown, the current trigger family, chronological gaps, branches, timing, documents, communications, ownership, approvals, completion evidence, and parked issues.",
     "Prioritize: missing chronological steps; branches that change action, deadline, or strategy; timing and service logic; required documents or communications; assignment, approval, automation boundary, or escalation; completion evidence; exact naming or formatting.",

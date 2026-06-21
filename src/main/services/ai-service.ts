@@ -357,6 +357,7 @@ export class AIService {
       "spokenReply, nextQuestion, priorityReason, capturePatch, missingCriticalFields, atomicTriggerIds, caseDevelopmentLeads, clientManagementLeads, clientDevelopmentLeads, contradictions, parkedItems.",
       "capturePatch must be an array of patch objects. Each patch needs operation, entity, entityId, field, value, and status.",
       "spokenReply and nextQuestion should sound like Eleanor interviewing the user to capture operational knowledge for later K-Sync / CaseSync mapping.",
+      "Keep spokenReply and nextQuestion distinct. Do not repeat or paraphrase nextQuestion inside spokenReply.",
       `Voice instructions:\n${ELEANOR_VOICE_INSTRUCTIONS}`,
     ].join("\n\n");
 
