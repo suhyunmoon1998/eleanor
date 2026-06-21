@@ -120,13 +120,6 @@ function shortText(text: string, maxLength = 180) {
   return `${normalized.slice(0, maxLength - 1).trim()}...`;
 }
 
-function cleanPreviewText(text: string, maxLength = 96) {
-  if (/<(!doctype|html|head|body|meta|style)|@font-face|data:font|base64|--text-/i.test(text)) {
-    return "";
-  }
-  return shortText(text, maxLength);
-}
-
 function buildFallbackProblemAnswerPairs(session: SessionRecord, unsavedDraft: string): FinalReportResult["problemAnswerPairs"] {
   const pairs: FinalReportResult["problemAnswerPairs"] = [];
   const captureEntries = Object.entries(session.capture).slice(-8);
@@ -912,26 +905,23 @@ export function App() {
           <p className="section-title">Recent Sessions</p>
           <div className="stack recent-list">
             {data.recentSessions.length === 0 ? <p className="hint">No sessions yet.</p> : null}
-            {data.recentSessions.map((session) => {
-              const preview = cleanPreviewText(session.currentQuestion);
-              return (
-                <button
-                  key={session.id}
-                  className="list-button"
-                  onClick={() => {
-                    setCompletedReport(null);
-                    setActiveSession(session);
-                    setLastExtraction(buildExtractionPreview(session));
-                    setViewMode("map");
-                  }}
-                >
-                  <strong>{session.title}</strong>
-                  <span>{session.familyId}</span>
-                  <span>{(session.progress[session.familyId] ?? []).length} confirmed</span>
-                  {preview ? <span className="list-note">{preview}</span> : null}
-                </button>
-              );
-            })}
+            {data.recentSessions.map((session) => (
+              <button
+                key={session.id}
+                className="list-button recent-session-button"
+                onClick={() => {
+                  setCompletedReport(null);
+                  setActiveSession(session);
+                  setLastExtraction(buildExtractionPreview(session));
+                  setViewMode("map");
+                }}
+              >
+                <strong>{session.title}</strong>
+                <span className="recent-meta">
+                  {session.familyId} · {(session.progress[session.familyId] ?? []).length} confirmed
+                </span>
+              </button>
+            ))}
           </div>
         </section>
       </aside>
