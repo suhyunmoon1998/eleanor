@@ -215,6 +215,27 @@ function formatProblemAnswerReport(report: CompletedReport | null) {
     .join("\n");
 }
 
+function formatConversationTranscript(session: SessionRecord | null) {
+  if (!session) return "";
+  const transcript = session.transcript.length
+    ? session.transcript.flatMap((entry, index) => [
+        `${index + 1}. ${entry.role.toUpperCase()} · ${entry.createdAt}`,
+        entry.text.trim() || "(empty)",
+        "",
+      ])
+    : ["No saved conversation turns yet."];
+
+  return [
+    `Conversation History: ${session.title}`,
+    `Session ID: ${session.id}`,
+    `Family: ${session.familyId}`,
+    `Created: ${session.createdAt}`,
+    `Updated: ${session.updatedAt}`,
+    "",
+    ...transcript,
+  ].join("\n").trim();
+}
+
 export function App() {
   const bridge = getBridge();
   const nativeBridge = hasNativeBridge();
@@ -1135,20 +1156,32 @@ function InterviewView(props: {
   const startingFamily = props.data.families[0];
   const startingTitle = startingFamily ? `${startingFamily.familyId} — ${startingFamily.title}` : "Eleanor Interview";
   const answerDraftRef = useRef<HTMLTextAreaElement | null>(null);
+  const [copyMessage, setCopyMessage] = useState("");
+
+  async function copyConversation(session: SessionRecord | null) {
+    if (!session) return;
+    try {
+      await navigator.clipboard.writeText(formatConversationTranscript(session));
+      setCopyMessage("Conversation copied.");
+    } catch {
+      setCopyMessage("Copy failed. Try Export for ChatGPT instead.");
+    }
+  }
 
   if (props.completedReport && !props.activeSession) {
+    const completedReport = props.completedReport;
     return (
       <section className="summary-screen">
         <article className="summary-hero">
           <p className="eyebrow">Interview Complete</p>
-          <h2>{props.completedReport.title}</h2>
-          <p>{props.completedReport.summary}</p>
-          <p className="hint">{props.completedReport.aiGenerated ? "AI generated this problem-answer report from the conversation." : "Showing local fallback because AI report generation was unavailable."}</p>
+          <h2>{completedReport.title}</h2>
+          <p>{completedReport.summary}</p>
+          <p className="hint">{completedReport.aiGenerated ? "AI generated this problem-answer report from the conversation." : "Showing local fallback because AI report generation was unavailable."}</p>
           <div className="summary-actions">
             <button className="button" onClick={props.onStartOver}>Start New Interview</button>
             <button
               className="button button-secondary"
-              onClick={() => void navigator.clipboard?.writeText(formatProblemAnswerReport(props.completedReport))}
+              onClick={() => void navigator.clipboard?.writeText(formatProblemAnswerReport(completedReport))}
             >
               Copy Problem / Answer
             </button>
@@ -1158,7 +1191,7 @@ function InterviewView(props: {
         <article className="answer-card">
           <p className="section-title">Resolved Rules / Answers</p>
           <div className="problem-answer-list">
-            {props.completedReport.problemAnswerPairs.map((pair, index) => (
+            {completedReport.problemAnswerPairs.map((pair, index) => (
               <section className="problem-answer-card" key={`${pair.problem}-${index}`}>
                 <p><strong>Problem:</strong> {pair.problem}</p>
                 <p><strong>Answer:</strong> {pair.answer}</p>
@@ -1172,7 +1205,7 @@ function InterviewView(props: {
           <article className="answer-card">
             <p className="section-title">Key Points</p>
             <ul className="summary-list">
-              {props.completedReport.keyPoints.map((point, index) => (
+              {completedReport.keyPoints.map((point, index) => (
                 <li key={`${point}-${index}`}>{point}</li>
               ))}
             </ul>
@@ -1181,17 +1214,17 @@ function InterviewView(props: {
           <article className="answer-card">
             <p className="section-title">Open Follow-Ups</p>
             <ul className="summary-list">
-              {props.completedReport.openQuestions.map((question, index) => (
+              {completedReport.openQuestions.map((question, index) => (
                 <li key={`${question}-${index}`}>{question}</li>
               ))}
             </ul>
           </article>
         </section>
 
-        {props.completedReport.unsavedDraft ? (
+        {completedReport.unsavedDraft ? (
           <article className="answer-card">
             <p className="section-title">Unsaved Draft</p>
-            <p>{props.completedReport.unsavedDraft}</p>
+            <p>{completedReport.unsavedDraft}</p>
           </article>
         ) : null}
 
@@ -1199,10 +1232,14 @@ function InterviewView(props: {
           <div className="answer-card-header">
             <div>
               <p className="eyebrow">Conversation History</p>
-              <h3>{props.completedReport.session.transcript.length} saved turns</h3>
+              <h3>{completedReport.session.transcript.length} saved turns</h3>
             </div>
+            <button className="quiet-button" onClick={() => void copyConversation(completedReport.session)}>
+              Copy Conversation
+            </button>
           </div>
-          <ConversationHistory session={props.completedReport.session} emptyText="No conversation turns were saved." />
+          {copyMessage ? <p className="hint success">{copyMessage}</p> : null}
+          <ConversationHistory session={completedReport.session} emptyText="No conversation turns were saved." />
         </article>
       </section>
     );
@@ -1363,7 +1400,11 @@ function InterviewView(props: {
                     <p className="eyebrow">Conversation History</p>
                     <h3>{props.activeSession.transcript.length === 0 ? "No saved turns yet." : `${props.activeSession.transcript.length} saved turns`}</h3>
                   </div>
+                  <button className="quiet-button" onClick={() => void copyConversation(props.activeSession)}>
+                    Copy
+                  </button>
                 </div>
+                {copyMessage ? <p className="hint success">{copyMessage}</p> : null}
                 <ConversationHistory session={props.activeSession} emptyText="The full conversation will appear here as Eleanor and Jack speak." />
               </aside>
             </section>
