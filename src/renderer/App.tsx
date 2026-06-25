@@ -36,8 +36,7 @@ type CompletedReport = {
 };
 
 const providerOptions: Array<{ value: AiProvider; label: string }> = [
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Claude" },
+  { value: "local", label: "Local Archive" },
 ];
 const voiceOptions = ["coral", "shimmer", "sage", "marin", "cedar", "alloy"];
 const LIVE_IDLE_FAILSAFE_MS = 5 * 60 * 1000;
@@ -46,30 +45,39 @@ const TTS_FETCH_FAILSAFE_MS = 30 * 1000;
 const TTS_PLAYBACK_MIN_FAILSAFE_MS = 12 * 1000;
 const TTS_PLAYBACK_MAX_FAILSAFE_MS = 45 * 1000;
 const providerPresets: Record<AiProvider, Pick<AppSettings, "provider" | "realtimeModel" | "fallbackRealtimeModel" | "extractionModel" | "fallbackExtractionModel" | "voice">> = {
+  local: {
+    provider: "local",
+    realtimeModel: "local-archive",
+    fallbackRealtimeModel: "local-archive",
+    extractionModel: "local-archive",
+    fallbackExtractionModel: "local-archive",
+    voice: "coral",
+  },
   openai: {
-    provider: "openai",
-    realtimeModel: "gpt-realtime",
-    fallbackRealtimeModel: "gpt-realtime-mini",
-    extractionModel: "gpt-5.2",
-    fallbackExtractionModel: "gpt-5-mini",
+    provider: "local",
+    realtimeModel: "local-archive",
+    fallbackRealtimeModel: "local-archive",
+    extractionModel: "local-archive",
+    fallbackExtractionModel: "local-archive",
     voice: "coral",
   },
   anthropic: {
-    provider: "anthropic",
-    realtimeModel: "gpt-realtime",
-    fallbackRealtimeModel: "gpt-realtime-mini",
-    extractionModel: "claude-sonnet-4-6",
-    fallbackExtractionModel: "claude-haiku-4-5",
+    provider: "local",
+    realtimeModel: "local-archive",
+    fallbackRealtimeModel: "local-archive",
+    extractionModel: "local-archive",
+    fallbackExtractionModel: "local-archive",
     voice: "coral",
   },
 };
 
 function providerSupportsLiveVoice(provider: AiProvider) {
-  return provider === "openai";
+  return false;
 }
 
 function providerLabel(provider: AiProvider) {
-  return provider === "anthropic" ? "Claude" : "OpenAI";
+  void provider;
+  return "Local archive";
 }
 
 function estimateTtsPlaybackFailsafeMs(text: string) {
@@ -288,7 +296,7 @@ export function App() {
   const [inputDevices, setInputDevices] = useState<AudioDeviceOption[]>([]);
   const [outputDevices, setOutputDevices] = useState<AudioDeviceOption[]>([]);
   const [deviceSupport, setDeviceSupport] = useState("Device selection will appear when the browser or desktop runtime exposes media devices.");
-  const provider = loadState.status === "ready" ? loadState.data.settings.provider : "anthropic";
+  const provider = loadState.status === "ready" ? loadState.data.settings.provider : "local";
   const liveRuntimeAvailable = providerSupportsLiveVoice(provider) && (nativeBridge || window.location.protocol.startsWith("http"));
 
   useEffect(() => {
@@ -316,11 +324,15 @@ export function App() {
 
   useEffect(() => {
     if (liveConnected) return;
-    if (provider === "anthropic") {
-      setLiveStatus("Voice is available with OpenAI mode.");
+    if (provider === "local") {
+      setLiveStatus("Local archive mode. Type notes and export them for Eleanor 2.0.");
       return;
     }
-    setLiveStatus("Ready for voice.");
+    if (provider === "anthropic") {
+      setLiveStatus("Voice is disabled while Eleanor 2.0 is being rebuilt.");
+      return;
+    }
+    setLiveStatus("OpenAI voice has been removed for the Eleanor 2.0 rebuild.");
   }, [provider, liveConnected]);
 
   useEffect(() => {
@@ -391,7 +403,7 @@ export function App() {
     try {
       const data = await bridge.bootstrap();
       setLoadState({ status: "ready", data });
-      setViewMode(data.hasApiKey ? "map" : "setup");
+      setViewMode("map");
     } catch (error) {
       setLoadState({
         status: "error",
@@ -622,7 +634,7 @@ export function App() {
   async function handleStartLiveVoice(sessionOverride?: SessionRecord) {
     const session = sessionOverride ?? activeSession;
     if (!providerSupportsLiveVoice(provider)) {
-      setErrorMessage("Voice mode needs OpenAI.");
+      setErrorMessage("OpenAI live voice has been removed. Use local notes/export mode for Eleanor 2.0.");
       return;
     }
     if (!liveRuntimeAvailable) {
@@ -758,7 +770,7 @@ export function App() {
     setLastExtraction(null);
     setLiveTranscriptPreview("");
     setNote("");
-    setViewMode(loadState.status === "ready" && loadState.data.hasApiKey ? "map" : "setup");
+    setViewMode("map");
   }
 
   function handlePauseCapture() {
@@ -888,7 +900,7 @@ export function App() {
 
       return true;
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "British TTS failed. Falling back to OpenAI voice.");
+      setErrorMessage(error instanceof Error ? error.message : "British TTS failed. Voice is disabled in local archive mode.");
       if (shouldRestoreMic && liveSessionRef.current?.isConnected()) {
         liveSessionRef.current.setMicrophoneEnabled(true);
         setMicPaused(false);
@@ -974,9 +986,7 @@ export function App() {
           <p className="section-title">Ready</p>
           <div className="stack">
             <p className="hint">
-              {data.hasApiKey
-                ? `${providerLabel(data.settings.provider)} connected`
-                : "Render API key needed"}
+              {providerLabel(data.settings.provider)} mode active
             </p>
             {connectionMessage ? <p className="hint success">{connectionMessage}</p> : null}
             {settingsMessage ? <p className="hint success">{settingsMessage}</p> : null}
@@ -1018,7 +1028,7 @@ export function App() {
             <div className="hero setup-hero">
               <p className="eyebrow">Start</p>
               <h2>Server key needed.</h2>
-              <p>Add `ELEANOR_API_KEY` in Render, then redeploy.</p>
+              <p>OpenAI API has been removed. Eleanor is now in local archive mode.</p>
             </div>
 
             <article className="card tall compact-card">
@@ -1034,13 +1044,13 @@ export function App() {
                 ))}
               </div>
               <p className="hint">
-                Waiting for Render environment variable: ELEANOR_API_KEY
+                Local archive mode is ready. No API key is required.
               </p>
               <button className="button" onClick={() => void refresh()}>
                 Check Again
               </button>
               <p className="hint">
-                Model: {settings?.extractionModel}{data.settings.provider === "openai" ? ` + ${settings?.realtimeModel}` : ""}
+                Mode: {settings?.extractionModel}
               </p>
             </article>
           </section>
@@ -1143,7 +1153,9 @@ function SettingsView(props: {
               </label>
             </>
           ) : (
-            <p className="hint">Claude mode uses typed interview only.</p>
+            <p className="hint">
+              {draft.provider === "local" ? "Local archive mode uses typed notes and exports only." : "Claude mode uses typed interview only."}
+            </p>
           )}
           <button className="button" onClick={() => void props.onSave(draft)}>Save</button>
         </article>
@@ -1306,43 +1318,45 @@ function InterviewView(props: {
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">AI Meeting Notes</p>
-          <h2>Record the conversation. Eleanor takes the notes.</h2>
-          <p>Speak naturally. Mispronunciations are okay; Eleanor uses context to find the intended term.</p>
+          <p className="eyebrow">Local Archive</p>
+          <h2>Collect the notes for Eleanor 2.0.</h2>
+          <p>OpenAI is off for this build. Keep useful details here, then copy or export them for the rebuild.</p>
         </div>
       </section>
 
       {!props.activeSession ? (
         <section className="start-panel">
           <article className="start-card">
-            <p className="eyebrow">Voice Workspace</p>
-            <h2>Start recording</h2>
+            <p className="eyebrow">Eleanor 2.0 Prep</p>
+            <h2>Start notes</h2>
             <p className="start-copy">
-              Click once, allow the microphone, then talk like a normal meeting.
-              Eleanor listens, cleans up likely speech mistakes, keeps the transcript, and prepares a clean summary.
+              OpenAI API has been removed. Use this as a local archive to collect notes, copy conversation history,
+              and export a clean knowledge pack for the Eleanor 2.0 rebuild.
             </p>
             <div className="start-actions">
               <button
                 className="button button-large"
-                onClick={() => startingFamily && void props.onCreateVoiceSession(startingFamily.familyId, startingTitle)}
-                disabled={!startingFamily || !props.liveAvailable}
-              >
-                Start Recording
-              </button>
-              <button
-                className="button button-secondary"
                 onClick={() => startingFamily && void props.onCreateSession(startingFamily.familyId, startingTitle)}
                 disabled={!startingFamily}
               >
-                Type Notes
+                Start Notes
               </button>
+              {props.liveAvailable ? (
+                <button
+                  className="button button-secondary"
+                  onClick={() => startingFamily && void props.onCreateVoiceSession(startingFamily.familyId, startingTitle)}
+                  disabled={!startingFamily}
+                >
+                  Start Recording
+                </button>
+              ) : null}
             </div>
             <p className="hint">
               {startingFamily
                 ? `Starting with ${startingFamily.familyId}: ${startingFamily.title}`
                 : "No interview families are loaded yet."}
             </p>
-            {!props.liveAvailable ? <p className="danger">Voice needs OpenAI connected in Render.</p> : null}
+            {!props.liveAvailable ? <p className="hint">Voice is off for now. Eleanor 2.0 will get a cleaner voice stack.</p> : null}
           </article>
         </section>
       ) : (
@@ -1372,7 +1386,7 @@ function InterviewView(props: {
             <section className="room-layout">
               <div className="conversation-main">
                 <div className={`status-pill ${props.liveConnected ? "status-pill-live" : ""}`}>
-                  <span>{props.provider === "openai" ? (props.liveConnected ? "Live" : "Ready") : "Typed only"}</span>
+                  <span>{props.liveConnected ? "Live" : "Local"}</span>
                   <p>{props.liveStatus}</p>
                 </div>
 

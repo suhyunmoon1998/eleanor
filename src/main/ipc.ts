@@ -29,7 +29,7 @@ export function registerIpcHandlers({ appStore, ai, secretStore, sources, dataRo
     const families = await sources.getFamilies();
 
     return {
-      hasApiKey: await secretStore.hasApiKey(),
+      hasApiKey: true,
       settings,
       storagePath: dataRoot,
       sourceSummary,

@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const appSettingsSchema = z.object({
-  provider: z.enum(["openai", "anthropic"]).default("openai"),
-  realtimeModel: z.string().default("gpt-realtime"),
-  fallbackRealtimeModel: z.string().default("gpt-realtime-mini"),
-  extractionModel: z.string().default("gpt-5.2"),
-  fallbackExtractionModel: z.string().default("gpt-5-mini"),
+  provider: z.enum(["local", "openai", "anthropic"]).default("local"),
+  realtimeModel: z.string().default("local-archive"),
+  fallbackRealtimeModel: z.string().default("local-archive"),
+  extractionModel: z.string().default("local-archive"),
+  fallbackExtractionModel: z.string().default("local-archive"),
   voice: z.string().default("coral"),
   selectedInputDeviceId: z.string().optional(),
   selectedOutputDeviceId: z.string().optional(),

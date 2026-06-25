@@ -32,11 +32,11 @@ const sessionsKey = "eleanor.mock.sessions";
 const apiKeyKey = "eleanor.mock.apiKey";
 
 const defaultSettings: AppSettings = {
-  provider: "openai",
-  realtimeModel: "gpt-realtime",
-  fallbackRealtimeModel: "gpt-realtime-mini",
-  extractionModel: "gpt-5.2",
-  fallbackExtractionModel: "gpt-5-mini",
+  provider: "local",
+  realtimeModel: "local-archive",
+  fallbackRealtimeModel: "local-archive",
+  extractionModel: "local-archive",
+  fallbackExtractionModel: "local-archive",
   voice: "coral",
 };
 
@@ -68,7 +68,7 @@ function buildBootstrap(): BootstrapState {
   };
 
   return {
-    hasApiKey: Boolean(localStorage.getItem(apiKeyKey)),
+    hasApiKey: true,
     settings: readSettings(),
     storagePath: "Browser preview mock store",
     sourceSummary: {
@@ -98,10 +98,11 @@ export const mockBridge: RendererBridge = {
     return buildBootstrap();
   },
   async saveApiKey(apiKey: string): Promise<SaveApiKeyResult> {
-    localStorage.setItem(apiKeyKey, apiKey);
+    void apiKey;
+    localStorage.removeItem(apiKeyKey);
     return {
       ok: true,
-      message: "Preview mode: provider API key save is mocked and treated as validated.",
+      message: "Preview mode: OpenAI API has been removed. Local archive mode is ready.",
       checkedModels: [defaultSettings.realtimeModel, defaultSettings.extractionModel],
     };
   },
@@ -113,7 +114,7 @@ export const mockBridge: RendererBridge = {
     return {
       ok: true,
       models: [defaultSettings.realtimeModel, defaultSettings.extractionModel],
-      message: "Preview mode: AI provider connection calls are mocked in the browser-only preview.",
+      message: "Preview mode: local archive mode is ready. No API key is required.",
       checkedModels: [defaultSettings.realtimeModel, defaultSettings.fallbackRealtimeModel, defaultSettings.extractionModel, defaultSettings.fallbackExtractionModel],
       missingModels: [],
     };

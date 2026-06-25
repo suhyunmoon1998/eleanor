@@ -13,6 +13,17 @@ const defaultState: AppState = {
   sessions: [],
 };
 
+function localArchiveSettings(settings: Partial<AppSettings> = {}): AppSettings {
+  return {
+    ...appSettingsSchema.parse(settings),
+    provider: "local",
+    realtimeModel: "local-archive",
+    fallbackRealtimeModel: "local-archive",
+    extractionModel: "local-archive",
+    fallbackExtractionModel: "local-archive",
+  };
+}
+
 export class AppStore {
   constructor(private readonly filePath: string) {}
 
@@ -22,7 +33,7 @@ export class AppStore {
 
   async saveSettings(settings: AppSettings) {
     const state = await this.readState();
-    state.settings = appSettingsSchema.parse(settings);
+    state.settings = localArchiveSettings(settings);
     await this.writeState(state);
   }
 
@@ -100,7 +111,7 @@ export class AppStore {
     const raw = await readFile(this.filePath, "utf8");
     const parsed = JSON.parse(raw) as Partial<AppState>;
     return {
-      settings: appSettingsSchema.parse(parsed.settings ?? {}),
+      settings: localArchiveSettings(parsed.settings ?? {}),
       sessions: (parsed.sessions ?? []).map((session) => sessionSchema.parse(session)),
     };
   }

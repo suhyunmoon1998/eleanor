@@ -14,8 +14,6 @@ services:
         value: 0.0.0.0
       - key: ELEANOR_WEB_DATA_ROOT
         value: /opt/render/project/src/app-data
-      - key: ELEANOR_API_KEY
-        sync: false
     disk:
       name: eleanor-data
       mountPath: /opt/render/project/src/app-data

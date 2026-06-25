@@ -17,12 +17,7 @@ Because of that, Render should use a paid instance with a persistent disk if ses
 
 ## What To Set In Render
 
-Create a new Blueprint or Web Service from this repo.
-
-If using the included `render.yaml`, set this secret in the dashboard:
-
-- `ELEANOR_API_KEY`:
-  your OpenAI API key
+Create a new Blueprint or Web Service from this repo. OpenAI API has been removed, so no AI API key is required.
 
 Optional:
 
@@ -42,7 +37,7 @@ Optional:
 
 - `starter` is used in [render.yaml](/Users/davidmun/Documents/Eleanor/render.yaml) so the app can keep its local session data on a disk.
 - If you switch the service to `free`, Render will not preserve local files. That means saved sessions can disappear after restart or redeploy.
-- Eleanor reads the API key from `ELEANOR_API_KEY`, so Jack does not need to paste the key into the app.
+- Eleanor now runs in local archive mode while Eleanor 2.0 is being rebuilt.
 
 ## Manual Render Setup
 
@@ -64,4 +59,3 @@ And add env vars:
 - `NODE_ENV=production`
 - `HOST=0.0.0.0`
 - `ELEANOR_WEB_DATA_ROOT=/opt/render/project/src/app-data`
-- `ELEANOR_API_KEY=<your key>`

@@ -4,9 +4,9 @@ import { appSettingsSchema, sessionSchema } from "./contracts.js";
 describe("contracts", () => {
   it("fills default settings", () => {
     const parsed = appSettingsSchema.parse({});
-    expect(parsed.provider).toBe("openai");
-    expect(parsed.realtimeModel).toBe("gpt-realtime");
-    expect(parsed.extractionModel).toBe("gpt-5.2");
+    expect(parsed.provider).toBe("local");
+    expect(parsed.realtimeModel).toBe("local-archive");
+    expect(parsed.extractionModel).toBe("local-archive");
     expect(parsed.voice).toBe("coral");
   });
 

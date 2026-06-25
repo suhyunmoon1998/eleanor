@@ -55,13 +55,13 @@ export async function buildServerApp(options: ServerAppOptions = {}) {
     const settings = await appStore.getSettings();
     return {
       ok: true,
-      apiConfigured: await secretStore.hasApiKey(),
+      apiConfigured: false,
       provider: settings.provider,
       realtimeModel: settings.realtimeModel,
       extractionModel: settings.extractionModel,
       voice: settings.voice === "marin" || settings.voice === "shimmer" ? "coral" : settings.voice,
-      britishTtsConfigured: Boolean(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
-      ttsProvider: process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID ? "elevenlabs" : "openai-realtime-fallback",
+      britishTtsConfigured: false,
+      ttsProvider: "disabled-local-archive",
     };
   });
 
@@ -72,7 +72,7 @@ export async function buildServerApp(options: ServerAppOptions = {}) {
     const families = await sources.getFamilies();
 
     return {
-      hasApiKey: await secretStore.hasApiKey(),
+      hasApiKey: true,
       settings,
       storagePath: dataRoot,
       sourceSummary,

@@ -39,8 +39,8 @@ describe("AppStore", () => {
     const exported = await store.exportState();
     expect(exported.sessions).toHaveLength(1);
     expect(exported.sessions[0]?.familyId).toBe("F01");
-    expect(exported.settings.provider).toBe("openai");
-    expect(exported.settings.realtimeModel).toBe("gpt-realtime");
+    expect(exported.settings.provider).toBe("local");
+    expect(exported.settings.realtimeModel).toBe("local-archive");
   });
 
   it("resets persisted state", async () => {

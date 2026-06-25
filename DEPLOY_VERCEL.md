@@ -18,17 +18,11 @@ The included [vercel.json](/Users/davidmun/Documents/Eleanor/vercel.json) alread
 
 ## Environment Variables
 
-Add:
-
-- `ELEANOR_API_KEY`
-
-Value:
-
-- your OpenAI API key
+No AI API key is required. Eleanor currently runs in local archive mode for the Eleanor 2.0 rebuild.
 
 ## Important Limitation
 
-Vercel Functions do not behave like an always-on server with persistent local files. Eleanor will load and call OpenAI, but interview session persistence should be treated as temporary until we connect a database or Vercel Storage.
+Vercel Functions do not behave like an always-on server with persistent local files. Interview session persistence should be treated as temporary until we connect a database or Vercel Storage.
 
 Good next storage options:
 
